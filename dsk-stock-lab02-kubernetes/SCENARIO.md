@@ -14,7 +14,7 @@ Dans le Lab 01, Docker Compose démarrait l'application DSK Stock (React/Nginx, 
 
 ```text
 Navigateur
-  | http://localhost:8080 (kubectl port-forward)
+  | http://localhost:8080 (port-forward local) ou http://IP_VM:8080 (VM distante)
   v
 Service frontend:80 -> Deployment frontend (Nginx + React)
                              | /api (reverse proxy)
@@ -162,66 +162,153 @@ Un **Job** réalise une tâche finie. L'`initContainer` `wait-database` attend l
 
 **Limite :** la route `/health` répond lorsque le serveur HTTP fonctionne, mais ne garantit pas que PostgreSQL est joignable.
 
-## 4. Construire et rendre les images disponibles
+## 4. Construire et publier les images dans un Container Registry (recommandé)
 
-Le Lab 02 référence ces images :
+### 4.1 Pourquoi utiliser un registre Docker ?
+
+**Je recommande d’utiliser un registre Docker (Container Registry)** plutôt que de dépendre des images construites sur la VM. Un `docker build` crée une image dans le magasin de Docker ; K3s utilise son propre runtime containerd. Une image visible dans `docker images` n'est donc pas automatiquement accessible à K3s. Le registre permet aux nœuds de télécharger les images de manière reproductible.
+
+Dans ce lab, nous utilisons **GitHub Container Registry (GHCR)** (`ghcr.io`), mais le principe est identique avec Harbor, GitLab Container Registry ou Docker Hub. Pour les apprenants, les images publiques évitent d'avoir à créer un `imagePullSecret`.
 
 ```text
-dsk-stock-backend:lab
-dsk-stock-frontend:lab
+Sources Git → docker build → images locales → docker push → GHCR
+                                                        |
+                                     K3s/containerd ← docker pull (par Kubernetes)
+                                                        |
+                                     Job Prisma + Deployments frontend/backend
 ```
 
-**Point de vigilance :** les Dockerfiles sont situés dans `apps/backend/Dockerfile` et `apps/frontend/Dockerfile`. Leur contexte de build (`.` ou sous-dossier) dépend des instructions `COPY` qu'ils contiennent. **Vérifiez ces instructions avant d'exécuter un build** :
+### 4.2 Préparer les sources et contrôler les Dockerfiles
+
+Placez-vous à la racine du Lab 02 :
 
 ```bash
+cd ~/devops-labs/lab-devops/dsk-stock-lab02-kubernetes
 sed -n '1,180p' apps/backend/Dockerfile
 sed -n '1,180p' apps/frontend/Dockerfile
+docker version
 ```
 
-Si les Dockerfiles attendent la racine du Lab 02 comme contexte, les commandes seront :
+Les Dockerfiles du projet utilisent la racine du Lab 02 comme **contexte de build** (`.`). Vérifiez leurs `COPY` si vous avez modifié l'arborescence.
+
+### 4.3 Créer un Personal Access Token GitHub (classic)
+
+1. Connectez-vous à GitHub avec le compte qui possédera les packages.
+2. Ouvrez **Settings → Developer settings → Personal access tokens → Tokens (classic)**, ou [la page des tokens classic](https://github.com/settings/tokens).
+3. Cliquez sur **Generate new token → Generate new token (classic)**.
+4. Donnez un nom explicite, par exemple `lab02-ghcr-push`, et choisissez une expiration courte.
+5. Cochez **`write:packages`** (GitHub peut sélectionner aussi `read:packages`). `delete:packages` n'est pas nécessaire. Le droit `repo` n'est pas nécessaire pour publier des images publiques ordinaires ; les contraintes d'organisation et de dépôts privés peuvent nécessiter des droits supplémentaires.
+6. Générez le token, copiez-le immédiatement et conservez-le dans un gestionnaire de secrets. Il ne sera pas affiché une seconde fois.
+
+**Sécurité :** ne publiez jamais ce token dans Git, un README, une capture d'écran ou les logs. Si votre organisation impose le SSO/SAML, autorisez le token pour l'organisation concernée. Un token classic est ici utilisé pour l'apprentissage de GHCR ; en CI/CD, préférez `GITHUB_TOKEN` et des permissions minimales adaptées au workflow.
+
+### 4.4 Se connecter au registre GHCR
+
+Remplacez `sdiawa` par **votre propre identifiant GitHub ou organisation**, sauf si vous publiez volontairement dans le compte de démonstration qui vous appartient.
 
 ```bash
-docker build -f apps/backend/Dockerfile -t dsk-stock-backend:lab .
-docker build -f apps/frontend/Dockerfile -t dsk-stock-frontend:lab .
+export GHCR_USER="sdiawa"  # À ADAPTER à votre compte GitHub
+read -rsp 'GitHub PAT (classic) : ' GHCR_TOKEN
+echo
+printf '%s' "$GHCR_TOKEN" | docker login ghcr.io \
+  -u "$GHCR_USER" --password-stdin
+unset GHCR_TOKEN
+```
+
+**Attendu :** `Login Succeeded`. Cela confirme l'authentification Docker, **pas** les permissions de publication sur n'importe quel propriétaire GHCR. Pour un environnement partagé, configurez un gestionnaire d'identifiants Docker : la configuration par défaut peut stocker le token sans chiffrement dans `~/.docker/config.json`.
+
+### 4.5 Construire et publier les images
+
+Depuis la racine du Lab 02 :
+
+```bash
+export GHCR_USER="sdiawa"  # À ADAPTER
+
+docker build -f apps/backend/Dockerfile \
+  -t "ghcr.io/${GHCR_USER}/dsk-stock-backend:lab02" .
+
+docker build -f apps/frontend/Dockerfile \
+  -t "ghcr.io/${GHCR_USER}/dsk-stock-frontend:lab02" .
+
 docker images | grep dsk-stock
+
+docker push "ghcr.io/${GHCR_USER}/dsk-stock-backend:lab02"
+docker push "ghcr.io/${GHCR_USER}/dsk-stock-frontend:lab02"
 ```
 
-**Résultat attendu :** les deux images apparaissent dans `docker images`. Si le build échoue sur un `COPY`, corrigez le **contexte de build** en fonction du Dockerfile : ne modifiez pas les chemins au hasard.
+**Attendu :** chaque `docker push` termine par `lab02: digest: sha256:...`. Le digest confirme la publication de l'image. Il est également possible de construire sous un nom local puis d'utiliser `docker tag` : cette opération ne reconstruit pas l'image.
 
-### Option B — kind
-
-Après avoir créé ou sélectionné votre cluster kind, chargez les images sur ses nœuds :
+**Incident réel — `not_found: owner not found` :** cette erreur est survenue lorsque l'exemple `ton_utilisateur_github` avait été conservé dans le nom d'image. Il faut remplacer le propriétaire par un compte ou une organisation où le token possède les droits. Exemple, si une image a déjà été construite sous le mauvais nom :
 
 ```bash
-kind get clusters
-kind load docker-image dsk-stock-backend:lab dsk-stock-frontend:lab --name NOM_DU_CLUSTER_KIND
+docker tag ghcr.io/ton_utilisateur_github/dsk-stock-backend:lab02 \
+  ghcr.io/sdiawa/dsk-stock-backend:lab02
+docker tag ghcr.io/ton_utilisateur_github/dsk-stock-frontend:lab02 \
+  ghcr.io/sdiawa/dsk-stock-frontend:lab02
+# Puis refaire les deux docker push avec les noms corrigés.
 ```
 
-Remplacez `NOM_DU_CLUSTER_KIND` par le nom affiché. La présence des images dans Docker Desktop **ne suffit pas** à les rendre visibles dans kind.
+### 4.6 Rendre les deux packages publics dans GitHub
 
-### Option C — Minikube
+Les packages nouvellement créés peuvent être **privés par défaut**. Pour que K3s et les apprenants téléchargent les images sans authentification :
+
+1. Ouvrez votre profil GitHub, onglet **Packages** (exemple : [packages du compte sdiawa](https://github.com/sdiawa?tab=packages)).
+2. Sélectionnez `dsk-stock-backend`, ouvrez **Package settings** puis **Danger Zone → Change package visibility → Public** et confirmez.
+3. Répétez l'opération pour `dsk-stock-frontend`.
+4. Vérifiez qu'aucun secret, identifiant ou fichier confidentiel n'est inclus dans les couches de vos images **avant** de les rendre publiques. Cette opération rend les packages téléchargeables par tout le monde.
+
+**Incident réel — `401 Unauthorized` :** un `k3s crictl pull` a échoué avec `failed to fetch anonymous token` alors que `docker push` avait réussi. La connexion Docker utilisée pour publier n'est **pas** automatiquement transmise au runtime K3s. Après passage des packages en public, le téléchargement anonyme est possible.
+
+Vérifiez sur la VM K3s :
 
 ```bash
-minikube image load dsk-stock-backend:lab
-minikube image load dsk-stock-frontend:lab
+sudo k3s crictl pull ghcr.io/sdiawa/dsk-stock-backend:lab02
+sudo k3s crictl pull ghcr.io/sdiawa/dsk-stock-frontend:lab02
+sudo k3s crictl images | grep dsk-stock
 ```
 
-Assurez-vous que `kubectl` pointe vers le profil Minikube voulu.
+Adaptez le propriétaire des images. Sur une session root, `sudo` est facultatif. Pour garder les packages privés, configurez à la place un Secret `kubernetes.io/dockerconfigjson` et `imagePullSecrets` sur les Pods (y compris le Job Prisma) ; ce parcours est hors du chemin principal de ce lab.
 
-### Option A ou D — K3s / kubeadm / cluster multinœud
+### 4.7 Adapter les références des images dans les manifests Kubernetes — obligatoire
 
-**Voie recommandée : un registre accessible par tous les nœuds.** Publiez les images dans un registre dont les nœuds peuvent tirer les images (public, ou privé avec authentification `imagePullSecrets`). Puis créez des **copies locales** des manifests, en remplaçant les deux références `dsk-stock-*:lab` par leurs références complètes de registre, dans le Job **et** dans les Deployments.
+**Publier les images ne suffit pas : les manifests doivent pointer vers le registre.** Trois usages du backend sont à modifier : l'initContainer et le conteneur de migration dans `manifests/20-migrate.yaml`, puis le Deployment backend dans `manifests/30-app.yaml`. Le Deployment frontend doit utiliser l'image frontend du registre.
 
-Exemple **illustratif** (à remplacer par votre registre et votre tag réel) :
+Exemple pour le compte `sdiawa` :
 
-```text
-registry.example.org/formation/dsk-stock-backend:lab02
-registry.example.org/formation/dsk-stock-frontend:lab02
+```yaml
+# manifests/20-migrate.yaml : dans wait-database ET migrate
+image: ghcr.io/sdiawa/dsk-stock-backend:lab02
+imagePullPolicy: IfNotPresent
+
+# manifests/30-app.yaml : conteneur backend
+image: ghcr.io/sdiawa/dsk-stock-backend:lab02
+
+# manifests/30-app.yaml : conteneur frontend
+image: ghcr.io/sdiawa/dsk-stock-frontend:lab02
 ```
 
-Pour les clusters multinœuds, une image présente sur **un seul nœud** ne suffit pas. L'import manuel dans containerd sur K3s est une autre possibilité, mais nécessite de suivre la procédure K3s correspondant à votre installation et de rendre les images disponibles sur tous les nœuds susceptibles d'exécuter les Pods. Évitez de dépendre de tags mutables en production ; préférez un tag versionné ou un digest.
+Pour adapter automatiquement les références locales initiales (à partir d'un dépôt non encore modifié) :
 
-**Vérification avant de continuer :** les deux images doivent être disponibles pour les Pods du cluster. Un `ImagePullBackOff` signifie souvent qu'elles ne le sont pas ou que le registre nécessite des identifiants.
+```bash
+export GHCR_USER="sdiawa"  # À ADAPTER
+sed -i "s|image: dsk-stock-backend:lab|image: ghcr.io/${GHCR_USER}/dsk-stock-backend:lab02|g" \
+  manifests/20-migrate.yaml manifests/30-app.yaml
+sed -i "s|image: dsk-stock-frontend:lab|image: ghcr.io/${GHCR_USER}/dsk-stock-frontend:lab02|g" \
+  manifests/30-app.yaml
+
+grep -nE 'image:|imagePullPolicy:' \
+  manifests/20-migrate.yaml manifests/30-app.yaml
+```
+
+**Attendu :** 3 références backend et 1 référence frontend. Si vous avez déjà modifié les manifests, vérifiez-les plutôt que de répéter aveuglément le remplacement. Préférez un tag versionné ou un digest immuable pour un déploiement reproductible.
+
+### 4.8 Autres environnements (alternatives)
+
+- **kind** : `kind load docker-image dsk-stock-backend:lab dsk-stock-frontend:lab --name NOM_DU_CLUSTER_KIND` si vous choisissez de ne pas utiliser GHCR.
+- **Minikube** : `minikube image load dsk-stock-backend:lab` puis `minikube image load dsk-stock-frontend:lab`.
+- **K3s / kubeadm multinœud** : un registre accessible à tous les nœuds est préférable à l'import manuel. Une image disponible dans Docker Engine ou sur un seul nœud n'est pas forcément visible par les autres nœuds Kubernetes.
+
+**Contrôle de sortie de l'étape 4 :** les deux images sont publiées, publiques ou accessibles via `imagePullSecrets`, téléchargeables par le runtime du cluster, et les deux manifests référencent correctement GHCR.
 
 ## 5. Déployer les objets Kubernetes dans le bon ordre
 
@@ -316,35 +403,140 @@ kubectl -n stock-lab02 get pods,deploy,svc,pvc,jobs
 
 **Attendu :** les deux Deployments prêts, PostgreSQL prêt, le PVC `Bound` et le Job `Complete`.
 
-## 6. Accéder à l'interface, à l'API et à Swagger
+## 6. Accéder à l'interface et corriger la configuration API du frontend
 
-Dans un **premier terminal**, laissez cette commande ouverte :
+### 6.1 Comprendre `ClusterIP` et `kubectl port-forward`
 
-```bash
-kubectl -n stock-lab02 port-forward service/frontend 8080:80
-```
+Les Services `frontend` (80) et `backend` (3001) sont de type `ClusterIP` : leurs ports ne sont pas automatiquement ouverts sur l'IP de la VM. Pour tester, on utilise temporairement `kubectl port-forward`.
 
-Ouvrez **http://localhost:8080**. L'API est également accessible via le proxy Nginx, par exemple **http://localhost:8080/api/products** ; sans authentification, une réponse `401 Unauthorized` est attendue sur cette route protégée.
-
-Dans un **deuxième terminal** :
+**Si `kubectl` s'exécute sur votre propre ordinateur** avec un kubeconfig fonctionnel :
 
 ```bash
-kubectl -n stock-lab02 port-forward service/backend 3001:3001
+kubectl -n stock-lab02 port-forward svc/frontend 8080:80
+# Ouvrir http://localhost:8080 sur ce même ordinateur.
 ```
 
-Testez :
+**Si `kubectl` s'exécute sur une VM K3s distante** (exemple `10.0.0.50`) et que vous ouvrez le navigateur depuis votre Mac, `localhost` ne désigne pas la même machine. Pour le test **uniquement sur un LAN de confiance**, utilisez deux terminaux sur la VM :
 
 ```bash
-curl -i http://localhost:3001/health
-curl -i http://localhost:3001/api/products
+# Terminal 1 — frontend
+kubectl -n stock-lab02 port-forward --address 0.0.0.0 svc/frontend 8080:80
+
+# Terminal 2 — backend
+kubectl -n stock-lab02 port-forward --address 0.0.0.0 svc/backend 3001:3001
 ```
 
-- **`/health`** : `200 OK` et `{"status":"ok"}` si le backend fonctionne.
-- **`/api/products`** : `401 Unauthorized` sans JWT est normal.
-- **http://localhost:3001/docs** : documentation Swagger **uniquement si elle est activée dans le code backend**. Un `404` ne signifie pas que Kubernetes est en panne.
-- **`/api`** seul peut renvoyer `404` : ce n'est pas un endpoint métier défini.
+Le frontend est alors accessible à **http://10.0.0.50:8080** et l'API à **http://10.0.0.50:3001** dans cet exemple. **Adaptez l'IP à votre VM.** Les deux terminaux doivent rester ouverts. `--address 0.0.0.0` expose temporairement les ports sur toutes les interfaces de la VM : n'utilisez pas cette option sur une machine exposée à Internet ; préférez un tunnel SSH ou un Ingress protégé.
 
-Si vous exécutez `kubectl port-forward` sur une VM distante, `localhost` désigne **cette VM**, pas votre ordinateur. Utilisez un tunnel SSH approprié ou exécutez le port-forward depuis votre ordinateur équipé du kubeconfig. N'exposez pas ces ports publiquement sans sécurisation.
+Pour vérifier l'écoute :
+
+```bash
+ss -lntp | grep -E '8080|3001'
+curl -i http://127.0.0.1:3001/health  # Depuis la VM
+```
+
+Sur le Mac (avec l'IP de l'exemple) :
+
+```bash
+curl -i http://10.0.0.50:3001/health
+curl -i http://10.0.0.50:3001/api/products
+```
+
+- `/health` → `200 OK`, `{"status":"ok"}` : serveur HTTP disponible.
+- `/api/products` → `401 Unauthorized` sans JWT : comportement attendu sur une route protégée.
+- `/docs` : Swagger seulement si activé dans le backend.
+
+### 6.2 Incident réel : l'interface s'affiche mais l'inscription indique `Network Error`
+
+**Symptômes constatés :** le navigateur affiche la page d'inscription, le backend répond sur `/health`, et un appel direct à `POST /api/auth/register` renvoie `201 Created`, mais l'interface React affiche `Network Error`.
+
+**Diagnostic :** React n'appelle pas nécessairement l'adresse que vous venez de tester. Dans le projet :
+
+- `apps/frontend/src/lib/config.ts` contient un fallback de développement `http://localhost:3001/api` ; dans le navigateur du Mac, `localhost` désigne **le Mac**, pas la VM.
+- `apps/frontend/entrypoint.sh` construit un fichier `env.js` au démarrage du conteneur. Sans variable de runtime, son URL par défaut peut être `https://api.stock.dsk.lab/api`, qui n'est pas forcément joignable dans le lab.
+- `apps/frontend/src/lib/api.ts` utilise `API_BASE_URL` pour ses requêtes HTTP.
+
+Vérifiez les sources et la configuration réellement injectée :
+
+```bash
+grep -RInE 'VITE_API|API_URL|baseURL|localhost:3001|/api/auth' \
+  apps/frontend/src apps/frontend/entrypoint.sh apps/frontend/nginx.conf
+
+kubectl -n stock-lab02 get deployment frontend -o yaml | grep -A 20 'env:'
+kubectl -n stock-lab02 exec deployment/frontend -- \
+  sh -c 'cat /usr/share/nginx/html/env.js'
+```
+
+**Test direct de l'API d'inscription** (compte de démonstration, adresse unique) :
+
+```bash
+curl -i -X POST http://10.0.0.50:3001/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"lab02-test@example.com","password":"TestLab02!2026"}'
+```
+
+**Attendu :** `201 Created` si l'inscription est acceptée ; `409` peut signifier que l'utilisateur existe déjà. N'utilisez pas de vrais mots de passe ou de données personnelles dans ce test.
+
+### 6.3 Corriger l'URL API au runtime, sans reconstruire l'image
+
+Pour le test avec la VM `10.0.0.50`, la valeur adaptée est :
+
+```text
+VITE_API_BASE_URL=http://10.0.0.50:3001/api
+```
+
+Appliquez-la :
+
+```bash
+kubectl -n stock-lab02 set env deployment/frontend \
+  VITE_API_BASE_URL=http://10.0.0.50:3001/api
+
+kubectl -n stock-lab02 rollout status deployment/frontend --timeout=180s
+kubectl -n stock-lab02 get pods
+kubectl -n stock-lab02 exec deployment/frontend -- \
+  sh -c 'cat /usr/share/nginx/html/env.js'
+```
+
+**Attendu :** `deployment "frontend" successfully rolled out`, nouveau Pod `Running`, et fichier `env.js` :
+
+```javascript
+window.__APP_CONFIG__ = {
+  apiBaseUrl: "http://10.0.0.50:3001/api"
+};
+```
+
+Rechargez le navigateur, puis inscrivez-vous et accédez au Dashboard. **Dans le lab réel, cette correction a permis d'accéder au Dashboard.** Aucun `docker build` ni `docker push` supplémentaire n'a été nécessaire : l'image est identique, seule la configuration d'exécution change.
+
+### 6.4 Rendre la correction déclarative dans Git — indispensable
+
+`kubectl set env` modifie **le Deployment vivant**, mais **pas** `manifests/30-app.yaml`. Ajoutez donc cette variable **au conteneur `frontend` uniquement** dans le manifest, en conservant les autres champs existants :
+
+```yaml
+# Extrait du conteneur frontend dans manifests/30-app.yaml
+containers:
+  - name: frontend
+    image: ghcr.io/sdiawa/dsk-stock-frontend:lab02
+    imagePullPolicy: IfNotPresent
+    env:
+      - name: VITE_API_BASE_URL
+        value: "http://10.0.0.50:3001/api"  # Adapter l'IP au lab
+    # Conserver ports, probes et autres paramètres existants.
+```
+
+Appliquez et vérifiez :
+
+```bash
+kubectl -n stock-lab02 apply -f manifests/30-app.yaml
+kubectl -n stock-lab02 rollout status deployment/frontend --timeout=180s
+kubectl -n stock-lab02 exec deployment/frontend -- \
+  sh -c 'cat /usr/share/nginx/html/env.js'
+```
+
+Cette URL est **temporaire et propre au lab**. Elle dépend du port-forward backend. Dans une évolution plus durable, utilisez Traefik Ingress avec un **point d'entrée unique**, une route `/` vers le frontend et `/api` vers le backend, puis `VITE_API_BASE_URL=/api`. Cela évite l'IP codée en dur, la dépendance au port 3001 et les appels cross-origin. Vérifiez le routage Nginx/Ingress avant de basculer.
+
+### 6.5 Diagnostiquer si cela ne fonctionne toujours pas
+
+Dans Chrome : **F12 → Network**, reproduisez l'inscription et relevez l'URL réellement appelée, le statut HTTP et les éventuelles erreurs CORS. Comparez-la à la valeur de `env.js`. Si l'API est appelée en `https` depuis une page HTTP, vérifiez également la connectivité, le certificat et les règles du navigateur. Ne confondez pas `401` applicatif, `ERR_CONNECTION_REFUSED` réseau et `Network Error` côté Axios.
 
 ## 7. Recette métier : prouver que l'application fonctionne
 
@@ -379,9 +571,11 @@ Revenez dans l'application : le produit **Clavier** doit toujours avoir **9** un
 |---|---|---|
 | Pod `Pending` | Ordonnancement ou stockage impossible | `kubectl -n stock-lab02 describe pod NOM` |
 | PVC `Pending` | Aucun PV compatible / provisionneur indisponible | `kubectl -n stock-lab02 describe pvc data-postgres-0` |
-| `ImagePullBackOff` | Image absente, mauvais tag ou registre inaccessible | `kubectl -n stock-lab02 describe pod NOM` |
+| `ImagePullBackOff` | Image absente, mauvais tag, package GHCR privé ou registre inaccessible | `kubectl -n stock-lab02 describe pod NOM` |
 | `CrashLoopBackOff` | Processus qui échoue au démarrage | `kubectl -n stock-lab02 logs NOM --previous` |
 | Job `Failed` | Erreur de connexion ou migration | `kubectl -n stock-lab02 logs job/stock-migrate --all-containers=true` |
+| `ERR_CONNECTION_REFUSED` sur `10.0.0.50:8080` | Port-forward limité à `127.0.0.1` ou port non ouvert | Vérifier `--address`, `ss -lntp` et le pare-feu |
+| `Network Error` à l’inscription | Mauvaise URL API runtime (`localhost`/DNS) ou CORS | Vérifier `env.js`, DevTools Network et `VITE_API_BASE_URL` |
 | HTTP `502` | Nginx ne parvient pas à joindre le backend | `kubectl -n stock-lab02 get endpoints backend` |
 | HTTP `401` | JWT absent ou invalide | Se connecter et vérifier l'en-tête `Authorization` |
 | HTTP `404` sur `/docs` | Swagger non activé ou chemin différent | Inspecter la configuration NestJS |
@@ -416,7 +610,7 @@ kubectl -n stock-lab02 scale deployment/backend --replicas=1
 
 ## 10. Livrable à remplir dans `COMPTE-RENDU.md`
 
-Documentez : type de cluster, contexte `kubectl`, nombre de nœuds, StorageClass, méthode de distribution des images, captures ou sorties des objets `Ready`/`Bound`/`Complete`, tests HTTP, scénario métier, preuve de persistance, incident rencontré et solution, réponses aux exercices. **Masquez secrets, JWT, mots de passe et kubeconfigs.** Notez le commit Git utilisé.
+Documentez : type de cluster, contexte `kubectl`, nombre de nœuds, StorageClass, nom du registre GHCR, création et portée du PAT (sans jamais le divulguer), visibilité des packages, références d’images dans les manifests, configuration runtime `env.js`, captures ou sorties des objets `Ready`/`Bound`/`Complete`, tests HTTP, scénario métier, preuve de persistance, incident rencontré et solution, réponses aux exercices. **Masquez secrets, JWT, mots de passe et kubeconfigs.** Notez le commit Git utilisé.
 
 ## 11. Fin de session et nettoyage (facultatif)
 
@@ -438,6 +632,6 @@ Avant toute suppression, vérifiez le contexte et la politique de rétention du 
 - Les manifests transmis pour ce lab sont `manifests/00-namespace.yaml`, `10-postgres.yaml`, `20-migrate.yaml`, `30-app.yaml`. Ils n'imposent pas Longhorn : **ne pas introduire** `storageClassName: longhorn` dans la version commune.
 - Les commandes de build proposées supposent que les Dockerfiles acceptent `.` comme contexte ; **vérifier leurs `COPY`** avant publication.
 - Le guide d'origine renvoie à `labs/prepare-kubernetes.py`, `labs/validate-http.py`, `labs/dsk-stock-lab02-kubernetes/manifests.local/` et à un `SCENARIO.md` à la racine : ces chemins **ne sont pas confirmés** dans l'arborescence fournie. Corriger ou fournir les fichiers manquants avant publication.
-- Pour un parcours véritablement prêt à l'emploi sur K3s, fournir des images publiques versionnées ou un script de publication vers un registre, plus un mécanisme documenté pour remplacer les références d'images dans **les deux** manifests concernés (`20-migrate.yaml` et `30-app.yaml`).
+- Le parcours GHCR est maintenant documenté : PAT classic, `docker login`, build/push, visibilité publique, pull K3s et références dans **les deux** manifests (`20-migrate.yaml` et `30-app.yaml`).
 - Vérifier dans le backend que Swagger est effectivement monté sur `/docs` avant de le promettre.
 - Éviter les identifiants d'exemple en dehors d'un lab isolé ; améliorer à terme la création des Secrets et la gestion des droits.
