@@ -4,19 +4,19 @@ Une application fil rouge, sept projets de déploiement. Chaque dossier contient
 
 | Projet | Sujet | Ce qui est ajouté | Prérequis |
 |---|---|---|---|
-| [01 — Docker](dsk-stock-lab01-docker/README.md) | Déployer localement | Compose, PostgreSQL, migrations, API, Nginx | Docker et Compose v2 |
-| [02 — Kubernetes](dsk-stock-lab02-kubernetes/README.md) | Comprendre les objets Kubernetes | Namespace, Secret, PVC, StatefulSet, Job, Deployment, Service | Docker, kind, kubectl |
-| [03 — Helm](dsk-stock-lab03-helm/README.md) | Paramétrer le déploiement | Un chart indépendant de l'infrastructure DSK | Lab 02, Helm 3 |
-| [04 — CI et registre](dsk-stock-lab04-github-actions/README.md) | Construire avec GitHub Actions | Vérifications et images GHCR identifiées par commit | GitHub, lab 01 |
-| [05 — ArgoCD](dsk-stock-lab05-argocd/README.md) | Livrer depuis Git | Application ArgoCD, synchronisation, retour à une version | Lab 03, dépôt GitHub public |
-| [06 — Observabilité](dsk-stock-lab06-prometheus-grafana/README.md) | Vérifier la disponibilité | Prometheus, Blackbox Exporter, Grafana | Lab 03 ou 05 |
-| [07 — Vault et ESO](dsk-stock-lab07-vault-eso/README.md) | Externaliser les secrets | Vault de démonstration, External Secrets Operator | Lab 03, Helm, kubectl |
+| [01 — Docker](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab01-docker) | Déployer localement | Compose, PostgreSQL, migrations, API, Nginx | Docker et Compose v2 |
+| [02 — Kubernetes](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab02-kubernetes) | Comprendre les objets Kubernetes | Namespace, Secret, PVC, StatefulSet, Job, Deployment, Service | Docker, kind, kubectl |
+| [03 — Helm](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab03-helm) | Paramétrer le déploiement | Un chart indépendant de l'infrastructure DSK | Lab 02, Helm 3 |
+| [04 — CI et registre](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab04-github-actions) | Construire avec GitHub Actions | Vérifications et images GHCR identifiées par commit | GitHub, lab 01 |
+| [05 — ArgoCD](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab05-argocd) | Livrer depuis Git | Application ArgoCD, synchronisation, retour à une version | Lab 03, dépôt GitHub public |
+| [06 — Observabilité](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab06-prometheus-grafana) | Vérifier la disponibilité | Prometheus, Blackbox Exporter, Grafana | Lab 03 ou 05 |
+| [07 — Vault et ESO](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab07-vault-eso) | Externaliser les secrets | Vault de démonstration, External Secrets Operator | Lab 03, Helm, kubectl |
 
 Les labs 01 et 02 ne nécessitent ni Vault, ni MinIO, ni Harbor, ni ArgoCD. MinIO n'est utilisé par aucune fonctionnalité de l'application actuelle ; il pourrait devenir un projet supplémentaire en ajoutant un vrai besoin de stockage d'objets, par exemple les photos produits.
 
 ## Démarrage
 
-Commencer par [le projet Docker](dsk-stock-lab01-docker/README.md). Pour accéder directement à Kubernetes, son guide inclut la construction des images. Chaque projet est utilisable sans avoir exécuté tous les précédents ; ses dépendances nécessaires sont explicites.
+Commencer par [le projet Docker](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab01-docker). Pour accéder directement à Kubernetes, son guide inclut la construction des images. Chaque projet est utilisable sans avoir exécuté tous les précédents ; ses dépendances nécessaires sont explicites.
 
 Les guides fournissent une implémentation de référence, puis des exercices à réaliser. Pour publier un exercice à trous, créer une révision de départ dédiée et une révision de correction ; ces tags ne sont pas encore créés.
 

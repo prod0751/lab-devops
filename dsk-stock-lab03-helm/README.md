@@ -11,7 +11,7 @@ Votre équipe souhaite réinstaller la même application dans plusieurs environn
 3. Consultez [GUIDE.md](GUIDE.md) pour retrouver le pas à pas technique.
 4. Complétez [COMPTE-RENDU.md](COMPTE-RENDU.md) au fil de vos vérifications.
 
-Le code vient de `https://github.com/sdiawa/lab-devops.git`. Après récupération du dépôt, exécutez les commandes de ce lab depuis **dsk-stock-lab03-helm/**, le dossier contenant `apps/` et `labs/`. Votre infrastructure vous appartient : aucun accès Proxmox, aucune IP ni aucun cluster ne sont fournis par l’auteur.
+Les fichiers de ce lab sont disponibles sur [GitHub — dsk-stock-lab03-helm](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab03-helm). Après récupération du dépôt, exécutez les commandes de ce lab depuis **dsk-stock-lab03-helm/**, le dossier contenant `apps/` et `labs/`. Votre infrastructure vous appartient : aucun accès Proxmox, aucune IP ni aucun cluster ne sont fournis par l’auteur.
 
 ## Ce que vous allez apprendre
 
