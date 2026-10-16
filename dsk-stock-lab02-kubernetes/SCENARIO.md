@@ -34,9 +34,9 @@ Job stock-migrate (Prisma) -> PostgreSQL (à exécuter AVANT le backend)
 Secret stock-secrets -> PostgreSQL, Job, backend
 Namespace commun : stock-lab02
 ```
-```img
+
 <img width="704" height="682" alt="Capture d’écran 2026-10-16 à 20 35 49" src="https://github.com/user-attachments/assets/39df2246-214f-465c-ba04-2b9cb74dae47" />
-```text
+
 **Attention :** un Pod `Running` ne signifie pas que l'application fonctionne. Le scénario métier et la persistance sont des tests distincts.
 
 ## 1. Préparer l'environnement
