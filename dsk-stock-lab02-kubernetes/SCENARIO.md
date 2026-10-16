@@ -41,52 +41,25 @@ Ne poursuivez pas si un prérequis indispensable échoue : utilisez les liens d�
 
 Le dépôt du parcours est `https://github.com/sdiawa/lab-devops.git`. Il doit contenir les sept dossiers nommés `dsk-stock-lab01-docker` à `dsk-stock-lab07-vault-eso`. Les noms de dossier sont significatifs pour les commandes, la CI et ArgoCD.
 
-### Méthode A — Cloner avec Git
-
 Sur la machine d’exécution choisie :
 
 ```bash
 mkdir -p "$HOME/devops-labs"
 cd "$HOME/devops-labs"
 git clone https://github.com/sdiawa/lab-devops.git
-cd lab-devops
-git rev-parse --short HEAD
+cd lab-devops/dsk-stock-lab02-kubernetes
 ```
 
-Notez la révision affichée dans votre compte rendu. Si vous avez déjà récupéré le dépôt pour un autre lab, réutilisez ce dossier ; sauvegardez vos modifications locales avant toute mise à jour. N’exécutez pas de reset pour simplement changer de lab.
-
-Vous êtes maintenant à la racine Git du parcours. Entrez dans le projet :
+Vérifiez l’arborescence :
 
 ```bash
-cd dsk-stock-lab02-kubernetes
-ls
-```
+ls -la
+ls apps
+
 
 Résultat attendu : vous voyez `README.md`, `SCENARIO.md`, `GUIDE.md`, `ENVIRONNEMENT.md`, `apps/`, `labs/` et `package.json`. **Toutes les commandes de déploiement qui suivent partent de ce dossier**, sauf lorsqu’un retour à la racine Git est explicitement indiqué.
+ire ces cours ; à lui seul, il ne crée pas un dépôt dans lequel vous pouvez pousser.
 
-### Méthode B — Télécharger une archive ZIP
-
-1. Ouvrez le dépôt dans votre navigateur.
-2. Sélectionnez la branche ou la révision indiquée sur la page du cours.
-3. Cliquez sur **Code**, puis **Download ZIP**.
-4. Décompressez l’archive ; GitHub ajoute généralement le nom de branche au dossier extrait, par exemple `lab-devops-main`.
-5. Ouvrez un terminal dans le sous-dossier `dsk-stock-lab02-kubernetes` de cette archive.
-6. Vérifiez la présence de `apps/` et `labs/` avant d’exécuter une commande.
-
-Le ZIP est une copie des sources sans historique Git. Pour les labs 04 et 05, utilisez le fork et le clone pour réaliser les exercices de commits et de livraison. Le ZIP convient pour lire ces cours ; à lui seul, il ne crée pas un dépôt dans lequel vous pouvez pousser.
-
-### Si l’exécution se fait dans une VM
-
-Clonez directement dans la VM après connexion SSH, ou transférez le dépôt complet. Exemple depuis votre PC, avant d’entrer dans le sous-dossier du lab :
-
-```bash
-scp -r lab-devops utilisateur@ADRESSE_DE_VOTRE_VM:~/
-ssh utilisateur@ADRESSE_DE_VOTRE_VM
-```
-
-Dans la VM, entrez dans `~/lab-devops/dsk-stock-lab02-kubernetes`. Adaptez l’utilisateur, l’adresse et le port SSH à votre infrastructure. Pour Vagrant, vous pouvez utiliser le dossier partagé de votre configuration ou les informations de `vagrant ssh-config`. Les clés et les IP ne sont pas fournies par ce dépôt.
-
-Références : [cloner un dépôt GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) et [télécharger ses sources](https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives).
 
 ## 3. Préparer les paramètres de votre infrastructure
 

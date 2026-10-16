@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-slate-950 text-slate-100 font-display antialiased;
+}
+
+.glass {
+  @apply bg-slate-900/70 backdrop-blur border border-slate-800;
+}

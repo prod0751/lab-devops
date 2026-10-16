@@ -1,0 +1,17 @@
+{
+  "name": "dsk-stock-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@8.15.5",
+  "scripts": {
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "format": "pnpm -r format"
+  },
+  "devDependencies": {
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.1.1"
+  }
+}
