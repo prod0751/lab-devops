@@ -197,8 +197,33 @@ Les Dockerfiles du projet utilisent la racine du Lab 02 comme **contexte de buil
 2. Ouvrez **Settings → Developer settings → Personal access tokens → Tokens (classic)**, ou [la page des tokens classic](https://github.com/settings/tokens).
 3. Cliquez sur **Generate new token → Generate new token (classic)**.
 4. Donnez un nom explicite, par exemple `lab02-ghcr-push`, et choisissez une expiration courte.
-5. Cochez **`write:packages`** (GitHub peut sélectionner aussi `read:packages`). `delete:packages` n'est pas nécessaire. Le droit `repo` n'est pas nécessaire pour publier des images publiques ordinaires ; les contraintes d'organisation et de dépôts privés peuvent nécessiter des droits supplémentaires.
-6. Générez le token, copiez-le immédiatement et conservez-le dans un gestionnaire de secrets. Il ne sera pas affiché une seconde fois.
+## Choisir les scopes
+
+| Besoin | Scope classic |
+| --- | --- |
+| Lire ou pousser du code dans un dépôt **privé** | `repo` |
+| Accéder à un dépôt **public** via Git en écriture | `public_repo` |
+| Lire des packages privés sur GitHub Packages | `read:packages` |
+| Publier des packages sur GitHub Packages | `write:packages` (et autres droits éventuellement requis) |
+| Modifier des fichiers de workflows GitHub Actions | `workflow` si nécessaire |
+
+**Attention :** le scope `repo` accorde des droits étendus sur les dépôts privés auxquels le compte a accès. Pour un accès limité à un seul dépôt, privilégier un *fine-grained token* lorsque possible.
+
+5. Cliquer sur **Generate token**.
+6. Copier immédiatement la valeur affichée, qui ressemble à :
+
+```text
+ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+7. Enregistrer le token dans un gestionnaire de secrets ou un coffre-fort sécurisé.
+
+**Ne jamais** :
+- Ajouter le token dans un fichier versionné par Git (`.md`, `.env`, script, etc.).
+- Le publier dans un ticket, une capture d'écran ou des logs.
+- Le partager dans une conversation ou un message non sécurisé.
+
+GitHub ne réaffiche pas la valeur complète du token après la création. En cas de perte, en générer un nouveau.
 
 **Sécurité :** ne publiez jamais ce token dans Git, un README, une capture d'écran ou les logs. Si votre organisation impose le SSO/SAML, autorisez le token pour l'organisation concernée. Un token classic est ici utilisé pour l'apprentissage de GHCR ; en CI/CD, préférez `GITHUB_TOKEN` et des permissions minimales adaptées au workflow.
 
