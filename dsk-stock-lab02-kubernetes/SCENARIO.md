@@ -451,7 +451,7 @@ kubectl -n stock-lab02 port-forward --address 0.0.0.0 svc/frontend 8080:80
 kubectl -n stock-lab02 port-forward --address 0.0.0.0 svc/backend 3001:3001
 ```
 
-Le frontend est alors accessible à **http://10.0.0.50:8080** et l'API à **http://10.0.0.50:3001** dans cet exemple. **Adaptez l'IP à votre VM.** Les deux terminaux doivent rester ouverts. `--address 0.0.0.0` expose temporairement les ports sur toutes les interfaces de la VM : n'utilisez pas cette option sur une machine exposée à Internet ; préférez un tunnel SSH ou un Ingress protégé.
+Le frontend est alors accessible à **http://10.0.0.50:8080** et l'API à **http://10.0.0.50:3001/docs** dans cet exemple. **Adaptez l'IP à votre VM.** Les deux terminaux doivent rester ouverts. `--address 0.0.0.0` expose temporairement les ports sur toutes les interfaces de la VM : n'utilisez pas cette option sur une machine exposée à Internet ; préférez un tunnel SSH ou un Ingress protégé.
 
 Pour vérifier l'écoute :
 
