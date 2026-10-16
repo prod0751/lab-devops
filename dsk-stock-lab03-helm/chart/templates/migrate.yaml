@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: stock-migrate-{{ .Release.Revision }}
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-database
+          image: {{ .Values.backend.image | quote }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command: ["node", "-e", "const {PrismaClient}=require('@prisma/client'); const p=new PrismaClient(); (async()=>{for(let i=0;i<90;i++){try{await p.$connect();await p.$disconnect();return;}catch{await new Promise(r=>setTimeout(r,2000));}}await p.$disconnect();process.exit(1);})()"]
+          envFrom:
+            - secretRef:
+                name: {{ default "stock-secrets" .Values.existingSecret | quote }}
+      containers:
+        - name: migrate
+          image: {{ .Values.backend.image | quote }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
+          envFrom:
+            - secretRef:
+                name: {{ default "stock-secrets" .Values.existingSecret | quote }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi

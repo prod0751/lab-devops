@@ -1,0 +1,21 @@
+backend:
+  image: dsk-stock-backend:lab
+  replicas: 1
+frontend:
+  image: dsk-stock-frontend:lab
+  replicas: 1
+imagePullPolicy: IfNotPresent
+postgres:
+  image: postgres:15-alpine
+  storage: 1Gi
+  # Empty: use the cluster default. Otherwise set an existing StorageClass.
+  storageClass: ""
+# Optional existing Secret with POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB,
+# DATABASE_URL and JWT_SECRET. Useful for lab 07.
+existingSecret: ""
+# Demonstration credentials only. Change them before installation.
+secrets:
+  postgresUser: stock
+  postgresPassword: stock_local_only
+  postgresDb: stock
+  jwtSecret: replace_with_openssl_rand_hex_32

@@ -1,0 +1,10 @@
+server:
+  dev:
+    enabled: true
+    devRootToken: lab-root-token
+  dataStorage:
+    enabled: false
+injector:
+  enabled: false
+ui:
+  enabled: true

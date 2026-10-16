@@ -1,0 +1,6 @@
+backend:
+  replicas: 1
+frontend:
+  replicas: 1
+secrets:
+  jwtSecret: replace_with_openssl_rand_hex_32

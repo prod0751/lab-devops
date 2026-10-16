@@ -1,0 +1,58 @@
+# Dépendances et fichiers générés
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Configuration personnelle et secrets ; conserver les exemples du cours
+.env
+.env.*
+!.env.example
+*.local.yaml
+manifests.local/
+vagrant-ssh.local.conf
+.kube/
+*.kubeconfig
+
+# Archives et exports générés
+/artifacts/
+
+# Scripts Python
+*.py
+
+# Documents de préparation du parcours
+/MODELE-ARTICLE.md
+/VALIDATION.md
+
+# Fichiers du système et des éditeurs
+.DS_Store
+._*
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+__pycache__/
+*.py[cod]
+
+# Fichiers personnels et generes des labs
+.vagrant/
+.ssh/
+kubeconfig
+kubeconfig.*
+*.local.yml
+*.local.json
+*.local.conf
+secrets.local/
+*.key
+*.private.pem
+*-key.pem
+id_rsa
+id_ed25519
+*.p12
+*.pfx
+backups/

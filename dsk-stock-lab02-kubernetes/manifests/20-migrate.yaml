@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: stock-migrate
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-database
+          image: dsk-stock-backend:lab
+          imagePullPolicy: IfNotPresent
+          command: ["node", "-e", "const {PrismaClient}=require('@prisma/client'); const p=new PrismaClient(); (async()=>{for(let i=0;i<90;i++){try{await p.$connect();await p.$disconnect();return;}catch{await new Promise(r=>setTimeout(r,2000));}}await p.$disconnect();process.exit(1);})()"]
+          envFrom:
+            - secretRef:
+                name: stock-secrets
+      containers:
+        - name: migrate
+          image: dsk-stock-backend:lab
+          imagePullPolicy: IfNotPresent
+          command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
+          envFrom:
+            - secretRef:
+                name: stock-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi

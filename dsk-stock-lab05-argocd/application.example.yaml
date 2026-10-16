@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: stock-lab05
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sdiawa/lab-devops.git
+    targetRevision: main
+    path: dsk-stock-lab05-argocd/labs/dsk-stock-lab03-helm/chart
+    helm:
+      releaseName: stock
+      parameters:
+        - name: backend.image
+          value: dsk-stock-backend:lab
+        - name: frontend.image
+          value: dsk-stock-frontend:lab
+      # Demonstration credentials in the chart are local-only.
+      # In project 07 use existingSecret instead.
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: stock-lab05
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

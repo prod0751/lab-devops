@@ -1,0 +1,5 @@
+existingSecret: stock-secrets
+backend:
+  image: dsk-stock-backend:lab
+frontend:
+  image: dsk-stock-frontend:lab

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: stock-lab
+description: DSK Stock local teaching chart, independent of the DSK infrastructure
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
