@@ -39,7 +39,6 @@ ls apps
 
 Fichiers essentiels présents dans la variante étudiée : `apps/`, `backend.Dockerfile`, `frontend.Dockerfile`, `compose.yaml`, `nginx.conf`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.env.example`, `README.md`, `GUIDE.md`, `ENVIRONNEMENT.md`, `COMPTE-RENDU.md` et `SCENARIO.md`.
 
-> Les chemins `labs/dsk-stock-lab01-docker/...` figurant dans d’anciennes instructions ne s’appliquent **pas** lorsque vous êtes déjà dans ce dossier. Aucun dossier `labs/` n’est requis par ce scénario.
 
 ## 3. Préparer l’environnement
 
