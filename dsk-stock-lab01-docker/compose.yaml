@@ -17,8 +17,8 @@ services:
   migrate:
     image: dsk-stock-backend:lab
     build:
-      context: ../..
-      dockerfile: labs/dsk-stock-lab01-docker/backend.Dockerfile
+      context: .
+      dockerfile: backend.Dockerfile
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
@@ -30,8 +30,8 @@ services:
   backend:
     image: dsk-stock-backend:lab
     build:
-      context: ../..
-      dockerfile: labs/dsk-stock-lab01-docker/backend.Dockerfile
+      context: .
+      dockerfile: backend.Dockerfile
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
@@ -50,8 +50,8 @@ services:
   frontend:
     image: dsk-stock-frontend:lab
     build:
-      context: ../..
-      dockerfile: labs/dsk-stock-lab01-docker/frontend.Dockerfile
+      context: .
+      dockerfile: frontend.Dockerfile
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-8080}:80"
     depends_on:

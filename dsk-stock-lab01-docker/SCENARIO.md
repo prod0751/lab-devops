@@ -1,228 +1,239 @@
-# Lab 01 — Mettre en service une application avec Docker Compose
+# Lab 01 — Mettre en service DSK Stock avec Docker Compose
 
 ## Votre mission
 
-Vous rejoignez une petite équipe qui suit son matériel informatique dans des fichiers partagés. Elle vous remet DSK Stock et vous demande une première installation utilisable sur une machine de votre lab. Vous devez livrer l’interface, son API et PostgreSQL, puis montrer que les données survivent à la recréation des conteneurs.
+Vous rejoignez une équipe qui suit son matériel informatique dans des fichiers partagés. Elle vous confie **DSK Stock** : vous devez installer l’interface React servie par Nginx, l’API NestJS et PostgreSQL, puis prouver que les données survivent à la recréation des conteneurs.
 
-**Niveau :** Débutant. **Durée indicative :** 1 à 2 heures, hors installation de votre infrastructure et téléchargement des images.
+**Niveau :** débutant. **Durée indicative :** 1 à 2 heures, hors préparation de l’environnement et téléchargement des images. Le lab fonctionne sur un poste Docker (notamment macOS avec Docker Desktop), une machine Linux ou une VM. Aucun cluster Kubernetes n’est nécessaire.
 
-Vous travaillez sur **votre propre infrastructure**. Ce cours n’attribue ni VM, ni IP, ni cluster : vous réutilisez les vôtres. Le choix de Proxmox, Vagrant, d’un autre hyperviseur ou d’un poste local vous appartient. Le [guide d’environnement](ENVIRONNEMENT.md) explique les différences de réseau et d’accès.
+**Compétences travaillées :** construction d’images, services Docker Compose, réseau interne, proxy inverse Nginx, volumes nommés, healthchecks, migrations Prisma et sauvegardes PostgreSQL.
 
-**Ce que ce lab ajoute :** Conteneurs, réseau Compose, proxy Nginx, volume PostgreSQL et migration ponctuelle.
+## 1. Prérequis
 
-## 1. Vérifier vos prérequis
+- Docker Engine ou Docker Desktop fonctionnel : `docker version`.
+- Docker Compose v2 : `docker compose version`.
+- `curl` pour les vérifications HTTP ; `openssl` pour générer un secret ; `python3` seulement si vous utilisez un script de validation externe.
+- Ressources indicatives : 2 vCPU, 4 Go de RAM et 20 Go de stockage disponible.
 
-### Connaissances
+Vérifiez que les ports **8080** (interface) et **3001** (API) sont disponibles. Ils peuvent être adaptés dans `.env` via `FRONTEND_PORT` et `API_PORT`.
 
-Savoir ouvrir un terminal, naviguer dans des dossiers et identifier un port réseau. Une première lecture de Docker est utile ; connaître React ou NestJS n’est pas nécessaire.
+## 2. Récupérer les sources
 
-### Infrastructure à fournir
-
-Une machine Linux, une VM Linux Vagrant/Proxmox/VMware/VirtualBox ou un poste disposant de Docker. Point de départ indicatif : 2 vCPU, 4 Go de RAM et 20 Go disponibles pour les images et les volumes. Aucun cluster Kubernetes requis.
-
-Les ressources indiquées sont des estimations pour un lab pédagogique, pas une garantie de dimensionnement. Vérifiez les ressources déjà consommées par vos services.
-
-### Outils et résultat attendu
-
-| Prérequis | Commande ou contrôle | Vous pouvez continuer si… |
-|---|---|---|
-| Docker Engine ou environnement Docker compatible | docker version | Le client peut communiquer avec le serveur Docker. |
-| Docker Compose v2 ou compatible | docker compose version | La commande compose est disponible. |
-| Python 3, OpenSSL et curl | python3 --version ; openssl version ; curl --version | Les outils de validation, de génération de secrets et de vérification HTTP sont présents. |
-
-Git est nécessaire pour le clone ; il est facultatif pour lire et exécuter un ZIP hors exercices Git. Python 3 est requis pour les scripts fournis si vous les utilisez. Les commandes utilisent Bash ou un shell compatible : sous Windows, utilisez WSL2 ou votre VM Linux.
-
-Les conteneurs embarquent Node et les dépendances de l’application : aucune installation manuelle de React, NestJS ou PostgreSQL sur votre hôte n’est demandée. Le lab CI installe ses outils dans les runners.
-
-Ne poursuivez pas si un prérequis indispensable échoue : utilisez les liens d’installation d’ENVIRONNEMENT.md et les diagnostics du guide. Installer un outil sur votre PC ne l’installe pas dans votre VM.
-
-## 2. Récupérer les sources chez vous
-
-Le dépôt du parcours est `https://github.com/sdiawa/lab-devops.git`. Il doit contenir les sept dossiers nommés `dsk-stock-lab01-docker` à `dsk-stock-lab07-vault-eso`. Les noms de dossier sont significatifs pour les commandes, la CI et ArgoCD.
-
-### Méthode A — Cloner avec Git
-
-Sur la machine d’exécution choisie :
+Le dépôt du parcours est `https://github.com/sdiawa/lab-devops.git`. Si vous utilisez Git :
 
 ```bash
 mkdir -p "$HOME/devops-labs"
 cd "$HOME/devops-labs"
 git clone https://github.com/sdiawa/lab-devops.git
-cd lab-devops
-git rev-parse --short HEAD
+cd lab-devops/dsk-stock-lab01-docker
 ```
 
-Notez la révision affichée dans votre compte rendu. Si vous avez déjà récupéré le dépôt pour un autre lab, réutilisez ce dossier ; sauvegardez vos modifications locales avant toute mise à jour. N’exécutez pas de reset pour simplement changer de lab.
+Si le dépôt est déjà présent, entrez simplement dans **`dsk-stock-lab01-docker`**. Vous pouvez également extraire une archive ZIP et ouvrir ce même sous-dossier. Toutes les commandes suivantes s’exécutent **depuis ce dossier**.
 
-Vous êtes maintenant à la racine Git du parcours. Entrez dans le projet :
+Vérifiez l’arborescence :
 
 ```bash
-cd dsk-stock-lab01-docker
-ls
+ls -la
+ls apps
 ```
 
-Résultat attendu : vous voyez `README.md`, `SCENARIO.md`, `GUIDE.md`, `ENVIRONNEMENT.md`, `apps/`, `labs/` et `package.json`. **Toutes les commandes de déploiement qui suivent partent de ce dossier**, sauf lorsqu’un retour à la racine Git est explicitement indiqué.
+Fichiers essentiels présents dans la variante étudiée : `apps/`, `backend.Dockerfile`, `frontend.Dockerfile`, `compose.yaml`, `nginx.conf`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.env.example`, `README.md`, `GUIDE.md`, `ENVIRONNEMENT.md`, `COMPTE-RENDU.md` et `SCENARIO.md`.
 
-### Méthode B — Télécharger une archive ZIP
+> Les chemins `labs/dsk-stock-lab01-docker/...` figurant dans d’anciennes instructions ne s’appliquent **pas** lorsque vous êtes déjà dans ce dossier. Aucun dossier `labs/` n’est requis par ce scénario.
 
-1. Ouvrez le dépôt dans votre navigateur.
-2. Sélectionnez la branche ou la révision indiquée sur la page du cours.
-3. Cliquez sur **Code**, puis **Download ZIP**.
-4. Décompressez l’archive ; GitHub ajoute généralement le nom de branche au dossier extrait, par exemple `lab-devops-main`.
-5. Ouvrez un terminal dans le sous-dossier `dsk-stock-lab01-docker` de cette archive.
-6. Vérifiez la présence de `apps/` et `labs/` avant d’exécuter une commande.
+## 3. Préparer l’environnement
 
-Le ZIP est une copie des sources sans historique Git. Pour les labs 04 et 05, utilisez le fork et le clone pour réaliser les exercices de commits et de livraison. Le ZIP convient pour lire ces cours ; à lui seul, il ne crée pas un dépôt dans lequel vous pouvez pousser.
-
-### Si l’exécution se fait dans une VM
-
-Clonez directement dans la VM après connexion SSH, ou transférez le dépôt complet. Exemple depuis votre PC, avant d’entrer dans le sous-dossier du lab :
+### 3.1 Configuration locale
 
 ```bash
-scp -r lab-devops utilisateur@ADRESSE_DE_VOTRE_VM:~/
-ssh utilisateur@ADRESSE_DE_VOTRE_VM
-```
-
-Dans la VM, entrez dans `~/lab-devops/dsk-stock-lab01-docker`. Adaptez l’utilisateur, l’adresse et le port SSH à votre infrastructure. Pour Vagrant, vous pouvez utiliser le dossier partagé de votre configuration ou les informations de `vagrant ssh-config`. Les clés et les IP ne sont pas fournies par ce dépôt.
-
-Références : [cloner un dépôt GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) et [télécharger ses sources](https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives).
-
-## 3. Préparer les paramètres de votre infrastructure
-
-Choisissez la machine qui exécutera Docker. Si c’est une VM, notez son accès SSH ; le navigateur peut rester sur votre ordinateur. Vérifiez que les ports locaux 8080 et 3001 sont libres, ou choisissez les autres ports dans le fichier `.env`.
-
-Avant les commandes techniques, complétez ce tableau dans votre [compte rendu](COMPTE-RENDU.md) :
-
-| Paramètre | Votre valeur |
-|---|---|
-| Machine qui exécutera les commandes | PC, VM ou serveur choisi |
-| Accès au navigateur | Local ou tunnel SSH |
-| Contexte Kubernetes, si utilisé | Nom relevé avec kubectl |
-| Référence des images, si Kubernetes | Registre/tag ou import dans le runtime |
-| Stockage, si Kubernetes | StorageClass ou PV préparé |
-| Révision des sources | Commit Git ou archive utilisée |
-
-Pour Kubernetes, une image construite dans Docker n’est pas forcément présente dans le runtime du cluster. Avant le déploiement, suivez l’étape 7 d’ENVIRONNEMENT.md : registre accessible aux nœuds, import K3s adapté ou chargement kind. Pour les labs 01 et 04, ce point n’impose pas de créer un cluster.
-
-## 4. Réaliser le lab pas à pas
-
-Les fichiers sont déjà fournis dans ce dossier. Lisez chaque action, exécutez ses commandes sur la machine choisie et vérifiez le résultat avant de passer à la suivante. Les fichiers locaux contenant vos paramètres ou vos secrets restent hors de Git.
-
-### Architecture
-```mermaid
-flowchart LR
-  B[Navigateur localhost:8080] --> F[Nginx et React]
-  F -->|/api| A[Backend NestJS]
-  A --> P[(PostgreSQL)]
-  M[Migration ponctuelle] --> P
-  P --> V[Volume postgres-data]
-```
-
-Le navigateur utilise `/api` sur le même serveur que l'interface. Nginx relaie ces requêtes vers `backend:3001`, nom résolu à l'intérieur du réseau Docker. Le navigateur ne peut pas résoudre ce nom Docker.
-
-### Fichiers
-- `compose.yaml` : services, ports et ordre de démarrage.
-- `backend.Dockerfile`, `frontend.Dockerfile` : images dédiées aux labs.
-- `nginx.conf` : fichiers React et proxy de l'API.
-- `.env.example` : paramètres locaux.
-
-Les images de labs remplacent les Dockerfiles historiques sans les supprimer. Le backend conserve les dépendances de compilation dans son image finale pour faciliter le cours ; l'optimisation constitue un exercice. Node 22 et pnpm 8.15.5 sont utilisés ; le verrou des dépendances est respecté.
-
-### Action 1 — Vérifier les outils
-Depuis la racine :
-```bash
-docker version
-docker compose version
-```
-
-### Action 2 — Préparer la configuration
-```bash
-cp .env.example .env 
+# Uniquement si .env n'existe pas déjà :
+cp -n .env.example .env
 openssl rand -hex 32
 ```
-Copier la valeur générée dans `JWT_SECRET` du fichier `.env`. Les identifiants PostgreSQL fournis sont réservés à cette démonstration locale. Si vous les changez, utiliser ici des caractères alphanumériques et des underscores : la construction simplifiée de l'URL ne réalise pas l'encodage des caractères spéciaux.
 
-### Action 3 — Construire et démarrer
-```bash
-docker compose --env-file labs/dsk-stock-lab01-docker/.env -f labs/dsk-stock-lab01-docker/compose.yaml config --quiet
-docker compose --env-file labs/dsk-stock-lab01-docker/.env -f labs/dsk-stock-lab01-docker/compose.yaml up -d --build
-docker compose --env-file labs/dsk-stock-lab01-docker/.env -f labs/dsk-stock-lab01-docker/compose.yaml ps -a
+Renseignez `JWT_SECRET` avec le secret généré et configurez `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `API_PORT` et `FRONTEND_PORT` dans `.env`. Ne publiez jamais `.env` ni les sauvegardes contenant des données réelles dans Git.
+
+**Attention :** le Compose de ce lab construit `DATABASE_URL` en interpolant directement le mot de passe :
+
+```yaml
+DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
 ```
 
-PostgreSQL doit être sain avant la migration. Le service `migrate` se termine avec le code 0 ; ce n'est pas une panne. L'API démarre après ce succès, puis Nginx après la disponibilité de l'API. Ces dépendances sont décrites dans la [documentation Compose](https://docs.docker.com/compose/how-tos/startup-order/).
+Avec cette écriture, les caractères réservés d’une URL dans les identifiants doivent être correctement encodés. Pour ce premier lab, choisissez un mot de passe alphanumérique suffisamment long pour simplifier l’exercice ; pour une configuration plus générale, encodez les composants de l’URL ou injectez une `DATABASE_URL` correctement construite.
 
-### Action 4 — Vérifier
-```bash
-curl --fail http://localhost:3001/health
-curl --fail http://localhost:8080/
-docker compose --env-file labs/dsk-stock-lab01-docker/.env -f labs/dsk-stock-lab01-docker/compose.yaml logs migrate backend
+**Important :** si PostgreSQL a déjà initialisé son volume, modifier `POSTGRES_PASSWORD` dans `.env` **ne modifie pas** automatiquement le mot de passe du rôle PostgreSQL existant. Ne supprimez pas le volume pour corriger ce problème.
+
+### 3.2 Architecture
+
+```mermaid
+flowchart LR
+    B[Navigateur localhost:8080] --> F[Nginx / React]
+    F -->|/api| A[Backend NestJS :3001]
+    A --> P[(PostgreSQL :5432)]
+    M[Migration Prisma ponctuelle] --> P
+    P --> V[(Volume postgres-data)]
 ```
-Ouvrir http://localhost:8080, puis exécuter [le scénario métier](../SCENARIO.md). Swagger est accessible sur http://localhost:3001/docs.
 
-### Action 5 — Tester la persistance
-```bash
-docker compose --env-file labs/dsk-stock-lab01-docker/.env -f labs/dsk-stock-lab01-docker/compose.yaml down
-docker compose --env-file labs/dsk-stock-lab01-docker/.env -f labs/dsk-stock-lab01-docker/compose.yaml up -d
-```
-Le produit doit être présent après reconnexion. Le volume est conservé par `down`.
+Le navigateur utilise `/api` via Nginx. Le nom `backend` est résolu sur le réseau Docker, pas depuis le navigateur. Le service PostgreSQL n’expose pas de port sur l’hôte : seuls les conteneurs du réseau Compose y accèdent directement.
 
-## 5. Recette : démontrer que votre mission est réussie
+### 3.3 Rôle des fichiers
 
-| Point de contrôle | Résultat à démontrer |
+| Fichier | Rôle |
 |---|---|
-| Configuration | Le `.env` local existe avec un JWT généré par vous ; il n’est pas commité. |
-| Migration | Le service migrate est terminé avec le code 0. |
-| Disponibilité | API et PostgreSQL sains ; interface accessible depuis votre poste. |
-| Métier | Le clavier passe de 10 à 13 puis à 9 ; une sortie de 99 est refusée. |
-| Persistance | Après down/up sans suppression du volume, le produit est toujours présent. |
+| `compose.yaml` | Définit `postgres`, `migrate`, `backend`, `frontend`, leurs dépendances et volumes |
+| `backend.Dockerfile` | Construit l’image Node/NestJS utilisée par le backend et Prisma |
+| `frontend.Dockerfile` | Construit l’interface et l’image Nginx |
+| `nginx.conf` | Sert le frontend et transmet `/api` au backend |
+| `.env` | Paramètres locaux et secrets (non versionnés) |
+| `apps/` | Sources applicatives |
 
-Pour les labs qui déploient l’application, ouvrez le frontend depuis votre PC et exécutez [la recette métier détaillée](../SCENARIO.md). Elle vérifie l’inscription, la création du clavier, les mouvements et le refus d’une sortie impossible. L’API et l’interface font partie du même exercice ; un Pod Running seul ne valide pas la mission.
+## 4. Déployer pas à pas
 
-Vous pouvez aussi lancer :
+### Action 1 — Valider la configuration
 
 ```bash
-python3 labs/validate-http.py --base-url http://localhost:8080/api
+docker compose --env-file .env -f compose.yaml config --quiet
 ```
 
-Ce script crée son compte fictif et un produit de test. Il doit être lancé sur la machine qui accède à cette URL ; adaptez le port si vous utilisez un tunnel différent. Dans le lab 04, cette commande est facultative et ne s’applique que si vous avez aussi déployé une application.
+Cette commande vérifie la configuration sans démarrer de conteneurs. Évitez `docker compose config` sans `--quiet` lorsque des secrets sont interpolés : ils pourraient s’afficher dans le terminal.
 
-### Si une vérification échoue
+### Action 2 — Construire et démarrer
 
-- Port occupé : modifier `FRONTEND_PORT` ou `API_PORT` dans `.env`.
-- Migration en échec : lire ses logs ; vérifier PostgreSQL et les identifiants.
-- Mot de passe changé après initialisation : les variables ne modifient pas le compte PostgreSQL déjà créé dans le volume. Restaurer les anciens identifiants ou réinitialiser uniquement les données de lab.
-- Échec de build : vérifier l'accès npm/Docker Hub et conserver `--frozen-lockfile` pour détecter un verrou incohérent.
-
-## 6. Questions pour comprendre ce que vous avez fait
-
-1. Pourquoi le navigateur utilise-t-il `/api` au lieu de `http://backend:3001` ?
-2. Quelle différence y a-t-il entre l’arrêt d’un conteneur et la suppression de son volume ?
-3. Pourquoi la migration doit-elle se terminer avant le démarrage de l’API ?
-
-### Exercices complémentaires
-
-1. Passer le port frontend de 8080 à 8081 sans reconstruire les images. Expliquer port hôte et port conteneur.
-2. Expliquer pourquoi PostgreSQL ne publie aucun port sur l'hôte.
-3. Supprimer le conteneur backend puis le recréer : les données doivent rester présentes.
-4. Proposer une image backend plus petite qui garde Prisma pour la migration.
-5. Comparer le healthcheck actuel avec une vérification de disponibilité de PostgreSQL.
-
-Livrable : schéma réseau, commandes utilisées et preuve de persistance. Réussite : migration à 0, services disponibles, scénario métier réussi.
-
-## 7. Votre livrable
-
-Complétez [COMPTE-RENDU.md](COMPTE-RENDU.md) avec votre architecture, vos paramètres, le résultat des points de contrôle, les incidents rencontrés et vos réponses. Joignez les commandes de diagnostic ou des captures utiles. Masquez les mots de passe, JWT, clés et kubeconfigs.
-
-Le résultat attendu est une installation ou une CI que vous pouvez expliquer et refaire, avec une révision de sources identifiée. Les vérifications initiales du cours et leurs limites sont dans [VALIDATION.md](../VALIDATION.md) ; votre variante d’infrastructure doit être vérifiée chez vous.
-
-## 8. Terminer votre session
-
-Arrêtez les port-forwards et tunnels avec Ctrl+C. Utilisez le nettoyage de la partie technique uniquement pour les ressources créées par cet exercice. Conservez les données si vous souhaitez poursuivre ; la suppression d’un volume ou d’un namespace peut les détruire. Votre cluster, votre VM et les services partagés de votre infrastructure n’ont pas à être supprimés pour terminer un lab.
-
-### Nettoyage des ressources de cet exercice
-
-Arrêter sans perdre les données :
 ```bash
-docker compose --env-file labs/dsk-stock-lab01-docker/.env -f labs/dsk-stock-lab01-docker/compose.yaml down
+docker compose --env-file .env -f compose.yaml up -d --build
+docker compose --env-file .env -f compose.yaml ps -a
 ```
-Pour supprimer également la base de ce lab, utiliser la même commande avec `--volumes`. Cette variante détruit les données.
+
+Ordre attendu : `postgres` devient **healthy** ; `migrate` applique les migrations et se termine avec le code **0** ; `backend` devient **healthy** ; `frontend` démarre. **`migrate` en `Exited (0)` est normal**.
+
+### Action 3 — Vérifier Prisma sans modifier la base
+
+```bash
+docker compose --env-file .env -f compose.yaml run --rm --no-deps \
+  --entrypoint node migrate \
+  node_modules/prisma/build/index.js migrate status
+```
+
+Résultat attendu pour la variante testée : `1 migration found` puis `Database schema is up to date!`. `migrate status` ne modifie pas le schéma.
+
+### Action 4 — Vérifier les services HTTP
+
+```bash
+curl -i http://localhost:3001/health
+curl -I http://localhost:8080/
+docker compose --env-file .env -f compose.yaml logs --tail=100 backend frontend
+```
+
+Résultats observés sur la variante testée : API `HTTP/1.1 200 OK` avec `{"status":"ok"}` et Nginx `HTTP/1.1 200 OK`. Ouvrez `http://localhost:8080` dans le navigateur. Un HTTP 200 vérifie la disponibilité de base, pas encore l'ensemble des fonctions métier.
+
+> Le chemin `/docs` et l’existence d’un éventuel script `validate-http.py` doivent être confirmés dans votre version du projet avant de les présenter comme disponibles.
+
+## 5. Recette métier
+
+Dans l’interface, réalisez le scénario fonctionnel du parcours :
+
+1. Créer un compte de démonstration, puis se connecter.
+2. Créer un produit **Clavier** avec un stock initial de **10** unités.
+3. Enregistrer une entrée de **3** unités : le stock attendu est **13**.
+4. Enregistrer une sortie de **4** unités : le stock attendu est **9**.
+5. Essayer une sortie de **99** unités : l’opération doit être refusée, sans modifier le stock restant.
+6. Vérifier l’historique des mouvements et le tableau de bord.
+
+Documentez chaque résultat dans `COMPTE-RENDU.md` ; ne considérez pas les opérations comme validées tant qu’elles n’ont pas été réellement testées.
+
+## 6. Sauvegarder et démontrer la persistance
+
+### Action 1 — Sauvegarder avant tout test de recréation
+
+```bash
+mkdir -p backups
+docker compose --env-file .env -f compose.yaml exec -T postgres \
+  sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
+  > backups/stock-before-persistence-test.dump
+ls -lh backups/stock-before-persistence-test.dump
+```
+
+Vérifiez que l’archive est lisible :
+
+```bash
+docker compose --env-file .env -f compose.yaml exec -T postgres \
+  pg_restore --list < backups/stock-before-persistence-test.dump | head -20
+```
+
+La lecture de la liste confirme que l’archive est reconnue ; elle ne remplace pas un test de restauration sur une base isolée. Conservez cette sauvegarde dans un emplacement protégé.
+
+### Action 2 — Recréer les conteneurs en conservant le volume
+
+Après avoir créé le produit de test et sauvegardé la base :
+
+```bash
+docker compose --env-file .env -f compose.yaml down
+docker compose --env-file .env -f compose.yaml up -d --no-build
+docker compose --env-file .env -f compose.yaml ps -a
+```
+
+Reconnectez-vous et vérifiez que **Clavier** existe toujours avec **9** unités et son historique. `down` supprime les conteneurs et le réseau Compose, mais conserve le volume nommé. **N’utilisez pas `down -v` ni `prisma migrate reset` : ces opérations peuvent détruire les données.**
+
+## 7. Diagnostic : incident PostgreSQL / Prisma P1000
+
+### Symptôme réellement rencontré
+
+Le service `migrate` échouait avec `P1000: Authentication failed against database server at postgres`. Pourtant, un test `psql` sur `127.0.0.1` dans le conteneur PostgreSQL fonctionnait.
+
+### Explication
+
+Les règles `pg_hba.conf` observées autorisaient les connexions locales avec `trust`, mais exigeaient `scram-sha-256` pour les connexions réseau Docker. Le test local ne validait donc **pas** le mot de passe. Le mot de passe du rôle PostgreSQL `stock` ne correspondait pas à celui transmis par Compose.
+
+### Diagnostic reproductible
+
+```bash
+# Lire les méthodes d'authentification (connexion locale)
+docker compose --env-file .env -f compose.yaml exec postgres \
+  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT type, database, user_name, address, auth_method, error FROM pg_hba_file_rules;"'
+
+# Vérifier l'authentification sur le réseau Docker
+docker compose --env-file .env -f compose.yaml exec postgres \
+  sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT current_user, current_database();"'
+```
+
+### Résolution appliquée dans le lab
+
+Une sauvegarde `pg_dump` a été créée et vérifiée. Le mot de passe du rôle PostgreSQL a ensuite été synchronisé avec `POSTGRES_PASSWORD` **sans recréer la base**, puis la connexion réseau, Prisma et `migrate status` ont réussi. La mise à jour du rôle a été effectuée avec `ALTER ROLE` et `psql` via la connexion locale autorisée ; cette opération est réservée à l'administration d'une base que vous contrôlez.
+
+**Leçon DevOps :** les variables d’initialisation de l’image PostgreSQL ne réécrivent pas les utilisateurs d’une base déjà présente dans un volume. Un healthcheck `pg_isready` confirme la disponibilité du serveur, pas la validité du mot de passe applicatif.
+
+## 8. Critères de réussite
+
+| Contrôle | Preuve attendue |
+|---|---|
+| Configuration | `.env` local non commité, configuration Compose valide |
+| Base de données | `postgres` healthy, authentification réseau fonctionnelle |
+| Migration | `migrate` terminé avec code 0, schéma à jour |
+| Backend | `/health` répond HTTP 200 |
+| Frontend | `http://localhost:8080/` répond HTTP 200 et l’interface s’affiche |
+| Métier | Stock 10 → 13 → 9 ; sortie de 99 refusée |
+| Persistance | Produit toujours présent après `down` / `up` sans `-v` |
+| Sauvegarde | Archive `pg_dump` créée et lisible |
+
+## 9. Questions et exercices complémentaires
+
+1. Pourquoi le navigateur appelle-t-il `/api` plutôt que `http://backend:3001` ?
+2. Quelle différence existe entre un conteneur et un volume Docker ?
+3. Pourquoi Prisma doit-il terminer ses migrations avant le démarrage du backend ?
+4. Pourquoi `pg_isready` peut-il être positif alors qu’une connexion applicative échoue ?
+5. Pourquoi le mot de passe défini dans `.env` ne met-il pas à jour un rôle PostgreSQL existant ?
+6. Modifiez `FRONTEND_PORT` pour exposer l’interface sur 8081 sans reconstruire les images.
+7. Proposez une méthode de réduction de la taille de l’image backend en conservant les outils de migration nécessaires.
+8. Identifiez les précautions à prendre avant d’exposer le lab sur Internet : TLS, CORS, secrets, authentification, limitation des requêtes et sauvegardes.
+
+## 10. Livrable et fin de session
+
+Complétez `COMPTE-RENDU.md` avec la machine utilisée, la révision Git, l’architecture, les commandes, les résultats des tests, l’incident P1000 et sa résolution. Masquez les mots de passe, tokens JWT, clés et informations sensibles.
+
+Pour arrêter les conteneurs **sans supprimer les données** :
+
+```bash
+docker compose --env-file .env -f compose.yaml down
+```
+
+Le volume `postgres-data` est conservé. Une suppression de volume ne fait pas partie du nettoyage normal de ce lab.
