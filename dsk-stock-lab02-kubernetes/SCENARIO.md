@@ -1,3 +1,4 @@
+<img width="704" height="682" alt="Capture d’écran 2026-10-16 à 20 35 49" src="https://github.com/user-attachments/assets/39df2246-214f-465c-ba04-2b9cb74dae47" />
 # Lab 02 — Déployer DSK Stock sur Kubernetes, pas à pas
 
 > **Public :** débutants ayant terminé le Lab 01 Docker Compose. **Durée :** 3 à 5 h après installation du cluster et préparation des images. **But :** comprendre Kubernetes, pas seulement copier des commandes.
