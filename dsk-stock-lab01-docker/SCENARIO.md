@@ -125,7 +125,19 @@ docker compose --env-file .env -f compose.yaml logs --tail=100 backend frontend
 
 Résultats observés sur la variante testée : API `HTTP/1.1 200 OK` avec `{"status":"ok"}` et Nginx `HTTP/1.1 200 OK`. Ouvrez `http://localhost:8080` dans le navigateur. Un HTTP 200 vérifie la disponibilité de base, pas encore l'ensemble des fonctions métier.
 
-> Le chemin `/docs` et l’existence d’un éventuel script `validate-http.py` doivent être confirmés dans votre version du projet avant de les présenter comme disponibles.
+Accéder à l'API et à sa documentation Swagger
+
+Vous pouvez également accéder à l'API backend NestJS et consulter sa documentation interactive Swagger depuis votre navigateur :
+
+Documentation Swagger UI : http://localhost:3001/docs
+
+Vérification de l'API (Healthcheck) : http://localhost:3001/health
+
+API via Nginx : http://localhost:8080/api/products
+
+Swagger permet de consulter les endpoints disponibles, les méthodes HTTP (GET, POST, PATCH, DELETE), les paramètres attendus et les réponses de l'API. Il permet également de tester les endpoints directement depuis le navigateur, avec une authentification JWT lorsque celle-ci est nécessaire.
+
+Remarque : l'accès à Swagger via /docs nécessite que cette fonctionnalité soit activée dans le backend.
 
 ## 5. Recette métier
 
