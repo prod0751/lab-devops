@@ -137,7 +137,7 @@ docker compose version
 
 ### Action 2 — Préparer la configuration
 ```bash
-cp labs/dsk-stock-lab01-docker/.env.example labs/dsk-stock-lab01-docker/.env
+cp .env.example .env 
 openssl rand -hex 32
 ```
 Copier la valeur générée dans `JWT_SECRET` du fichier `.env`. Les identifiants PostgreSQL fournis sont réservés à cette démonstration locale. Si vous les changez, utiliser ici des caractères alphanumériques et des underscores : la construction simplifiée de l'URL ne réalise pas l'encodage des caractères spéciaux.
