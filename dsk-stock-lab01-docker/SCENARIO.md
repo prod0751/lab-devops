@@ -44,8 +44,16 @@ sudo chmod a+r /etc/apt/keyrings/docker.asc
 
 ### Étape 3 — Déclarer le dépôt Docker pour Ubuntu
 ```bash
-sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null <<EOFTypes: debURIs: https://download.docker.com/linux/ubuntuSuites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")Components: stableArchitectures: $(dpkg --print-architecture)Signed-By: /etc/apt/keyrings/docker.asc
+sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
 sudo apt update
+
 ```
 
 Si un ancien dépôt Docker erroné existe dans `/etc/apt/sources.list.d/docker.list`, supprimez **uniquement cette entrée incorrecte** avant `apt update` pour éviter les conflits de configuration.
