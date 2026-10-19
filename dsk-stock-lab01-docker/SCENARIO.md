@@ -200,30 +200,9 @@ Ouvrez `.env` et renseignez la valeur obtenue :
 # Exemple uniquement : remplacez cette IP par celle de VOTRE machine
 BIND_IP=10.0.0.50
 ```
-
-Ne mettez **pas** une expression comme `BIND_IP=$(ip -4 route ...)` dans `.env` : Docker Compose n'exécute pas cette commande et produira une erreur `invalid IP address`.
-
-#### 3.1.2 Comprendre la publication des ports dans `compose.yaml`
-
-Conservez les sections suivantes dans les services concernés :
-```yaml
-# Service backend : NestJS écoute sur le port 3001 dans son conteneur
-ports:
-  - "${BIND_IP:-127.0.0.1}:3001:3001"
-
-# Service frontend : Nginx écoute sur le port 80 dans son conteneur
-ports:
-  - "${BIND_IP:-127.0.0.1}:8080:80"
-```
-
-La syntaxe est `IP_HOTE:PORT_HOTE:PORT_CONTENEUR`. Ainsi, avec `BIND_IP=10.0.0.50`, le navigateur peut accéder à `http://10.0.0.50:8080` et à `http://10.0.0.50:3001/health`, si le réseau et le pare-feu l'autorisent. `${BIND_IP:-127.0.0.1}` signifie que Docker Compose utilise `127.0.0.1` lorsque `BIND_IP` est absente ou vide : dans ce cas, l'accès est limité à la machine hôte.
-
-**Sécurité :** l'exposition sur une adresse LAN est réservée à un environnement de lab maîtrisé. N'exposez pas directement les ports du lab sur Internet.
-
-#### 3.1.3 Vérifier la configuration avant de déployer
+#### 3.1.2 Vérifier la configuration avant de déployer
 ```bash
 grep '^BIND_IP=' .env
-docker compose --env-file .env -f compose.yaml config --quiet
 ```
 
 La seconde commande doit se terminer sans erreur. En cas de `invalid IP address`, vérifiez que `BIND_IP` contient uniquement une adresse IPv4 valide, sans commande Bash ni lien Markdown.

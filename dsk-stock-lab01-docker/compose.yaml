@@ -37,7 +37,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
       PORT: "3001"
     ports:
-      - "127.0.0.1:${API_PORT:-3001}:3001"
+      - "${BIND_IP:-127.0.0.1}:3001:3001"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
@@ -53,7 +53,7 @@ services:
       context: .
       dockerfile: frontend.Dockerfile
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8080}:80"
+      - "${BIND_IP:-127.0.0.1}:8080:80"
     depends_on:
       backend:
         condition: service_healthy
