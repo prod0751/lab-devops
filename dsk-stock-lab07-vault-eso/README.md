@@ -7,9 +7,7 @@ Vous devez centraliser la configuration sensible de l’application. Votre objec
 ## Commencer
 
 1. Suivez [SCENARIO.md](SCENARIO.md) : prérequis, clone ou ZIP, préparation, réalisation et recette.
-2. Adaptez vos machines, images, stockage et accès avec [ENVIRONNEMENT.md](ENVIRONNEMENT.md).
-3. Consultez [GUIDE.md](GUIDE.md) pour retrouver le pas à pas technique.
-4. Complétez [COMPTE-RENDU.md](COMPTE-RENDU.md) au fil de vos vérifications.
+2. Complétez [COMPTE-RENDU.md](COMPTE-RENDU.md) au fil de vos vérifications.
 
 Les fichiers de ce lab sont disponibles sur [GitHub — dsk-stock-lab07-vault-eso](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab07-vault-eso). Après récupération du dépôt, exécutez les commandes de ce lab depuis **dsk-stock-lab07-vault-eso/**, le dossier contenant `apps/` et `labs/`. Votre infrastructure vous appartient : aucun accès Proxmox, aucune IP ni aucun cluster ne sont fournis par l’auteur.
 

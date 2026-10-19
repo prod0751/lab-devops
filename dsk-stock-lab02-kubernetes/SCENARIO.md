@@ -232,7 +232,7 @@ GitHub ne réaffiche pas la valeur complète du token après la création. En ca
 Remplacez `sdiawa` par **votre propre identifiant GitHub ou organisation**, sauf si vous publiez volontairement dans le compte de démonstration qui vous appartient.
 
 ```bash
-export GHCR_USER="sdiawa"  # À ADAPTER à votre compte GitHub
+export GHCR_USER="sdiawa"  # À ADAPTER à votre compte user GitHub
 read -rsp 'GitHub PAT (classic) : ' GHCR_TOKEN
 echo
 printf '%s' "$GHCR_TOKEN" | docker login ghcr.io \
@@ -247,7 +247,7 @@ unset GHCR_TOKEN
 Depuis la racine du Lab 02 :
 
 ```bash
-export GHCR_USER="sdiawa"  # À ADAPTER
+export GHCR_USER="sdiawa"  # # À ADAPTER à votre compte user GitHub
 
 docker build -f apps/backend/Dockerfile \
   -t "ghcr.io/${GHCR_USER}/dsk-stock-backend:lab02" .
@@ -315,7 +315,7 @@ image: ghcr.io/sdiawa/dsk-stock-frontend:lab02
 Pour adapter automatiquement les références locales initiales (à partir d'un dépôt non encore modifié) :
 
 ```bash
-export GHCR_USER="sdiawa"  # À ADAPTER
+export GHCR_USER="sdiawa"  # À ADAPTER à votre compte user GitHub
 sed -i "s|image: dsk-stock-backend:lab|image: ghcr.io/${GHCR_USER}/dsk-stock-backend:lab02|g" \
   manifests/20-migrate.yaml manifests/30-app.yaml
 sed -i "s|image: dsk-stock-frontend:lab|image: ghcr.io/${GHCR_USER}/dsk-stock-frontend:lab02|g" \
@@ -451,7 +451,7 @@ kubectl -n stock-lab02 port-forward --address 0.0.0.0 svc/frontend 8080:80
 kubectl -n stock-lab02 port-forward --address 0.0.0.0 svc/backend 3001:3001
 ```
 
-Le frontend est alors accessible à **http://10.0.0.50:8080** et l'API à **http://10.0.0.50:3001/docs** dans cet exemple. **Adaptez l'IP à votre VM.** Les deux terminaux doivent rester ouverts. `--address 0.0.0.0` expose temporairement les ports sur toutes les interfaces de la VM : n'utilisez pas cette option sur une machine exposée à Internet ; préférez un tunnel SSH ou un Ingress protégé.
+Le frontend est alors accessible à **http://IP_VM:8080** et l'API à **http://IP_VM:3001/docs** dans cet exemple. **Adaptez l'IP à votre VM.** Les deux terminaux doivent rester ouverts. `--address 0.0.0.0` expose temporairement les ports sur toutes les interfaces de la VM : n'utilisez pas cette option sur une machine exposée à Internet ; préférez un tunnel SSH ou un Ingress protégé.
 
 Pour vérifier l'écoute :
 
@@ -463,8 +463,8 @@ curl -i http://127.0.0.1:3001/health  # Depuis la VM
 Sur le Mac (avec l'IP de l'exemple) :
 
 ```bash
-curl -i http://10.0.0.50:3001/health
-curl -i http://10.0.0.50:3001/api/products
+curl -i http://IP_VM:3001/health
+curl -i http://IP_VM:3001/api/products
 ```
 
 - `/health` → `200 OK`, `{"status":"ok"}` : serveur HTTP disponible.
@@ -495,7 +495,7 @@ kubectl -n stock-lab02 exec deployment/frontend -- \
 **Test direct de l'API d'inscription** (compte de démonstration, adresse unique) :
 
 ```bash
-curl -i -X POST http://10.0.0.50:3001/api/auth/register \
+curl -i -X POST http://IP_VM:3001/api/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"email":"lab02-test@example.com","password":"TestLab02!2026"}'
 ```
@@ -507,14 +507,14 @@ curl -i -X POST http://10.0.0.50:3001/api/auth/register \
 Pour le test avec la VM `10.0.0.50`, la valeur adaptée est :
 
 ```text
-VITE_API_BASE_URL=http://10.0.0.50:3001/api
+VITE_API_BASE_URL=http://IP_VM:3001/api
 ```
 
 Appliquez-la :
 
 ```bash
 kubectl -n stock-lab02 set env deployment/frontend \
-  VITE_API_BASE_URL=http://10.0.0.50:3001/api
+  VITE_API_BASE_URL=http://IP_VM:3001/api
 
 kubectl -n stock-lab02 rollout status deployment/frontend --timeout=180s
 kubectl -n stock-lab02 get pods
@@ -526,7 +526,7 @@ kubectl -n stock-lab02 exec deployment/frontend -- \
 
 ```javascript
 window.__APP_CONFIG__ = {
-  apiBaseUrl: "http://10.0.0.50:3001/api"
+  apiBaseUrl: "http://IP_VM:3001/api"
 };
 ```
 
@@ -544,7 +544,7 @@ containers:
     imagePullPolicy: IfNotPresent
     env:
       - name: VITE_API_BASE_URL
-        value: "http://10.0.0.50:3001/api"  # Adapter l'IP au lab
+        value: "http://IP_VM:3001/api"  # Adapter l'IP au lab
     # Conserver ports, probes et autres paramètres existants.
 ```
 
