@@ -137,7 +137,7 @@ Depuis le dossier `dsk-stock-lab01-docker` :
 ```bash
 # Créer le fichier uniquement s'il n'existe pas encore
 # Créer le fichier .env à partir du modèle, uniquement s'il n'existe pas
-cp -n .env.example .env
+cp .env.example .env
 
 # Afficher les adresses IPv4 de la machine hébergeant Docker
 hostname -I
@@ -150,7 +150,7 @@ nano .env
 
 Explications :
 
-cp -n .env.example .env : crée le fichier .env à partir du modèle sans écraser une configuration existante.
+cp  .env.example .env : crée le fichier .env à partir du modèle sans écraser une configuration existante.
 
 hostname -I : affiche les adresses IP de la machine. Identifiez l'adresse IPv4 accessible depuis votre poste de travail. Ignorez les adresses des réseaux internes Docker, généralement de type 172.x.x.x.
 
