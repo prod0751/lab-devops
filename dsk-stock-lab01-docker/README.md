@@ -7,9 +7,7 @@ Vous rejoignez une petite équipe qui suit son matériel informatique dans des f
 ## Commencer
 
 1. Suivez [SCENARIO.md](SCENARIO.md) : prérequis, clone ou ZIP, préparation, réalisation et recette.
-2. Adaptez vos machines, images, stockage et accès avec [ENVIRONNEMENT.md](ENVIRONNEMENT.md).
-3. Consultez [GUIDE.md](GUIDE.md) pour retrouver le pas à pas technique.
-4. Complétez [COMPTE-RENDU.md](COMPTE-RENDU.md) au fil de vos vérifications.
+2. Complétez [COMPTE-RENDU.md](COMPTE-RENDU.md) au fil de vos vérifications.
 
 Les fichiers de ce lab sont disponibles sur [GitHub — dsk-stock-lab01-docker](https://github.com/sdiawa/lab-devops/tree/main/dsk-stock-lab01-docker). Après récupération du dépôt, exécutez les commandes de ce lab depuis **dsk-stock-lab01-docker/**, le dossier contenant `apps/` et `labs/`. Votre infrastructure vous appartient : aucun accès Proxmox, aucune IP ni aucun cluster ne sont fournis par l’auteur.
 
@@ -23,4 +21,4 @@ Savoir ouvrir un terminal, naviguer dans des dossiers et identifier un port rés
 
 La liste précise des outils et leurs contrôles se trouve dans le scénario. Tous les fichiers applicatifs nécessaires sont inclus ; suivre un lien vers un composant d’un autre lab n’impose pas de cloner un autre dépôt.
 
-Voir [la recette métier](../SCENARIO.md) et [l’état des vérifications](../VALIDATION.md).
+
