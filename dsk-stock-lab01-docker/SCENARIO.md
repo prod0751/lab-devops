@@ -276,24 +276,24 @@ Résultat attendu pour la variante testée : `1 migration found` puis `Database 
 
 ### Action 4 — Vérifier les services HTTP
 ```bash
-curl -i http\://localhost:3001/health
+curl -i http://IP_VM:3001/health
 
-curl -I http\://localhost:8080/
+curl -I http://IP_VM:8080/
 
 docker compose --env-file .env -f compose.yaml logs --tail=100 backend frontend
 ```
 
-Résultats observés sur la variante testée : API `HTTP/1.1 200 OK` avec `{"status":"ok"}` et Nginx `HTTP/1.1 200 OK`. Tester depuis la VM, puis depuis le navigateur du PC (en remplaçant `IP_VM` par la valeur de `BIND_IP`) : `http\://IP_VM:8080` et `http\://IP_VM:3001/health`. . Un HTTP 200 vérifie la disponibilité de base, pas encore l'ensemble des fonctions métier.
+Résultats observés sur la variante testée : API `HTTP/1.1 200 OK` avec `{"status":"ok"}` et Nginx `HTTP/1.1 200 OK`. Tester depuis la VM, puis depuis le navigateur du PC (en remplaçant `IP_VM` par la valeur de `BIND_IP`) : `http://IP_VM:8080` et `http://IP_VM:3001/health`. . Un HTTP 200 vérifie la disponibilité de base, pas encore l'ensemble des fonctions métier.
 
 Accéder à l'API et à sa documentation Swagger
 
 Vous pouvez également accéder à l'API backend NestJS et consulter sa documentation interactive Swagger depuis votre navigateur :
 
-Documentation Swagger UI : http\://IP_VM:3001/docs
+Documentation Swagger UI : `http://IP_VM:3001/docs`
 
-Vérification de l'API (Healthcheck) : http\://IP_VM:3001/health
+Vérification de l'API (Healthcheck) : http://IP_VM:3001/health
 
-API via Nginx : http\://IP_VM:8080/api/products
+Interface via Nginx : `http://IP_VM:8080`
 
 Swagger permet de consulter les endpoints disponibles, les méthodes HTTP (GET, POST, PATCH, DELETE), les paramètres attendus et les réponses de l'API. Il permet également de tester les endpoints directement depuis le navigateur, avec une authentification JWT lorsque celle-ci est nécessaire.
 
@@ -399,7 +399,7 @@ Une sauvegarde `pg_dump` a été créée et vérifiée. Le mot de passe du rôle
 
 \| Backend | `/health` répond HTTP 200 |
 
-\| Frontend | `http\://localhost:8080/` répond HTTP 200 et l’interface s’affiche |
+\| Frontend | `http://localhost:8080/` répond HTTP 200 et l’interface s’affiche |
 
 \| Métier | Stock 10 → 13 → 9 ; sortie de 99 refusée |
 
@@ -409,7 +409,7 @@ Une sauvegarde `pg_dump` a été créée et vérifiée. Le mot de passe du rôle
 
 ## 9. Questions et exercices complémentaires
 
-1\. Pourquoi le navigateur appelle-t-il `/api` plutôt que `http\://backend:3001` ?
+1\. Pourquoi le navigateur appelle-t-il `/api` plutôt que `http://backend:3001` ?
 
 2\. Quelle différence existe entre un conteneur et un volume Docker ?
 
