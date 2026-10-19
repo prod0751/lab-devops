@@ -136,23 +136,41 @@ Le fichier `.env` contient les paramètres propres à la machine de chaque appre
 Depuis le dossier `dsk-stock-lab01-docker` :
 ```bash
 # Créer le fichier uniquement s'il n'existe pas encore
+# Créer le fichier .env à partir du modèle, uniquement s'il n'existe pas
 cp -n .env.example .env
 
-# Générer un secret JWT à recopier dans .env
+# Afficher les adresses IPv4 de la machine hébergeant Docker
+hostname -I
+
+# Générer un secret JWT sécurisé à recopier dans .env
 openssl rand -hex 32
 
-# Modifier les paramètres locaux
+# Ouvrir le fichier .env pour renseigner les variables
 nano .env
-```
 
-Si `.env` existe déjà, conservez-le et modifiez uniquement les paramètres nécessaires. Exemple de contenu **à adapter** (ne recopiez pas les secrets de démonstration en production) :
-```dotenv
+Explications :
+
+cp -n .env.example .env : crée le fichier .env à partir du modèle sans écraser une configuration existante.
+
+hostname -I : affiche les adresses IP de la machine. Identifiez l'adresse IPv4 accessible depuis votre poste de travail. Ignorez les adresses des réseaux internes Docker, généralement de type 172.x.x.x.
+
+openssl rand -hex 32 : génère une valeur aléatoire sécurisée de 64 caractères hexadécimaux pour JWT_SECRET.
+
+nano .env : permet de modifier les paramètres de l'application.
+
+Exemple de configuration .env :
+
 POSTGRES_USER=stock
-POSTGRES_PASSWORD=ChoisirUnMotDePasseLongEtAleatoire
+POSTGRES_PASSWORD=VotreMotDePasseSecurise
 POSTGRES_DB=stock
 JWT_SECRET=REMPLACER_PAR_LA_VALEUR_DE_OPENSSL_RAND_HEX_32
 BIND_IP=10.0.0.50
+
+Important : 10.0.0.50 est une adresse IP utilisée à titre d'exemple. Remplacez-la par l'adresse IPv4 de votre machine dont docker tourne.
+
 ```
+
+Si `.env` existe déjà, conservez-le et modifiez uniquement les paramètres nécessaires. Exemple de contenu **à adapter** 
 
 | Variable | Explication |
 |---|---|
