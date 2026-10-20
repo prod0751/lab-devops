@@ -6,7 +6,7 @@ Vous souhaitez que les déploiements reflètent l’état décrit dans Git. Vous
 
 **Niveau :** Intermédiaire. **Durée indicative :** 2 à 3 heures, hors installation de votre infrastructure et téléchargement des images.
 
-Vous travaillez sur **votre propre infrastructure**. Ce cours n’attribue ni VM, ni IP, ni cluster : vous réutilisez les vôtres. Le choix de Proxmox, Vagrant, d’un autre hyperviseur ou d’un poste local vous appartient. Le [guide d’environnement](ENVIRONNEMENT.md) explique les différences de réseau et d’accès.
+Vous travaillez sur **votre propre infrastructure**. Ce cours n’attribue ni VM, ni IP, ni cluster : vous réutilisez les vôtres. Le choix de Proxmox, Vagrant, d’un autre hyperviseur ou d’un poste local vous appartient.
 
 **Ce que ce lab ajoute :** Source Git, Application ArgoCD, sync waves, hook de migration, selfHeal et retour à une révision.
 

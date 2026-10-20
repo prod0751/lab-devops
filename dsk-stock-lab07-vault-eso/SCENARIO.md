@@ -6,7 +6,7 @@ Vous devez centraliser la configuration sensible de l’application. Votre objec
 
 **Niveau :** Avancé. **Durée indicative :** 3 à 4 heures, hors installation de votre infrastructure et téléchargement des images.
 
-Vous travaillez sur **votre propre infrastructure**. Ce cours n’attribue ni VM, ni IP, ni cluster : vous réutilisez les vôtres. Le choix de Proxmox, Vagrant, d’un autre hyperviseur ou d’un poste local vous appartient. Le [guide d’environnement](ENVIRONNEMENT.md) explique les différences de réseau et d’accès.
+Vous travaillez sur **votre propre infrastructure**. Ce cours n’attribue ni VM, ni IP, ni cluster : vous réutilisez les vôtres. Le choix de Proxmox, Vagrant, d’un autre hyperviseur ou d’un poste local vous appartient. 
 
 **Ce que ce lab ajoute :** KV v2, policy minimale, SecretStore, ExternalSecret, Secret cible et rotation JWT.
 

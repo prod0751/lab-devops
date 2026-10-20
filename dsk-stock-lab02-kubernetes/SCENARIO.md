@@ -651,12 +651,3 @@ La commande suivante supprime **tout le namespace du lab** et peut entraîner la
 Avant toute suppression, vérifiez le contexte et la politique de rétention du volume. La suppression d'un PVC avec une politique `Delete` peut détruire le stockage sous-jacent.
 
 ---
-
-## Notes pour les mainteneurs du dépôt
-
-- Les manifests transmis pour ce lab sont `manifests/00-namespace.yaml`, `10-postgres.yaml`, `20-migrate.yaml`, `30-app.yaml`. Ils n'imposent pas Longhorn : **ne pas introduire** `storageClassName: longhorn` dans la version commune.
-- Les commandes de build proposées supposent que les Dockerfiles acceptent `.` comme contexte ; **vérifier leurs `COPY`** avant publication.
-- Le guide d'origine renvoie à `labs/prepare-kubernetes.py`, `labs/validate-http.py`, `labs/dsk-stock-lab02-kubernetes/manifests.local/` et à un `SCENARIO.md` à la racine : ces chemins **ne sont pas confirmés** dans l'arborescence fournie. Corriger ou fournir les fichiers manquants avant publication.
-- Le parcours GHCR est maintenant documenté : PAT classic, `docker login`, build/push, visibilité publique, pull K3s et références dans **les deux** manifests (`20-migrate.yaml` et `30-app.yaml`).
-- Vérifier dans le backend que Swagger est effectivement monté sur `/docs` avant de le promettre.
-- Éviter les identifiants d'exemple en dehors d'un lab isolé ; améliorer à terme la création des Secrets et la gestion des droits.

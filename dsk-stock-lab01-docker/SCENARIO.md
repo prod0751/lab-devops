@@ -87,17 +87,17 @@ Déconnectez-vous puis reconnectez-vous avant de vérifier avec `docker ps`. **S
 
 ### Dépannage rapide
 
-\| Symptôme | Cause probable | Vérification / correction |
+| Symptôme | Cause probable | Vérification / correction |
 
-\|---|---|---|
+|---|---|---|
 
-\| `404 ... /linux/debian noble Release` | Dépôt Debian utilisé sur Ubuntu | Corriger l'URL en `/linux/ubuntu` |
+| `404 ... /linux/debian noble Release` | Dépôt Debian utilisé sur Ubuntu | Corriger l'URL en `/linux/ubuntu` |
 
-\| `Package docker-ce has no installation candidate` | Dépôt absent ou invalide | Vérifier `docker.sources` puis `sudo apt update` |
+| `Package docker-ce has no installation candidate` | Dépôt absent ou invalide | Vérifier `docker.sources` puis `sudo apt update` |
 
-\| `Cannot connect to the Docker daemon` | Service arrêté ou droits insuffisants | `sudo systemctl status docker` ; tester avec `sudo docker ps` |
+| `Cannot connect to the Docker daemon` | Service arrêté ou droits insuffisants | `sudo systemctl status docker` ; tester avec `sudo docker ps` |
 
-\| `permission denied ... docker.sock` | Utilisateur non autorisé | Utiliser `sudo`, ou revoir l'appartenance au groupe `docker` |
+| `permission denied ... docker.sock` | Utilisateur non autorisé | Utiliser `sudo`, ou revoir l'appartenance au groupe `docker` |
 
 Documentation officielle : https\://docs.docker.com/engine/install/ubuntu/
 
@@ -387,25 +387,25 @@ Une sauvegarde `pg_dump` a été créée et vérifiée. Le mot de passe du rôle
 
 ## 8. Critères de réussite
 
-\| Contrôle | Preuve attendue |
+| Contrôle | Preuve attendue |
 
-\|---|---|
+|---|---|
 
-\| Configuration | `.env` local non commité, configuration Compose valide |
+| Configuration | `.env` local non commité, configuration Compose valide |
 
-\| Base de données | `postgres` healthy, authentification réseau fonctionnelle |
+| Base de données | `postgres` healthy, authentification réseau fonctionnelle |
 
-\| Migration | `migrate` terminé avec code 0, schéma à jour |
+| Migration | `migrate` terminé avec code 0, schéma à jour |
 
-\| Backend | `/health` répond HTTP 200 |
+| Backend | `/health` répond HTTP 200 |
 
-\| Frontend | `http://localhost:8080/` répond HTTP 200 et l’interface s’affiche |
+| Frontend | `http://localhost:8080/` répond HTTP 200 et l’interface s’affiche |
 
-\| Métier | Stock 10 → 13 → 9 ; sortie de 99 refusée |
+| Métier | Stock 10 → 13 → 9 ; sortie de 99 refusée |
 
-\| Persistance | Produit toujours présent après `down` / `up` sans `-v` |
+| Persistance | Produit toujours présent après `down` / `up` sans `-v` |
 
-\| Sauvegarde | Archive `pg_dump` créée et lisible |
+| Sauvegarde | Archive `pg_dump` créée et lisible |
 
 ## 9. Questions et exercices complémentaires
 

@@ -12,7 +12,7 @@ FROM node:22-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY --from=build --chown=node:node /repo /repo
-WORKDIR /repo/apps/backend
+WORKDIR /repo/apps/backend 
 USER node
 EXPOSE 3001
 CMD ["node", "dist/main.js"]

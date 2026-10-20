@@ -1,85 +1,51 @@
-# Lab 03 — Créer une installation reproductible avec Helm
+# Lab 03 — Déployer une application reproductible avec Helm
+
+> **Parcours :** Lab 01 (Docker Compose) → Lab 02 (Kubernetes) → **Lab 03 (Helm)**  
+> **Niveau :** intermédiaire · **Durée indicative :** 2 à 3 heures, hors préparation de l'infrastructure et téléchargement des images.
+
 ## Votre mission
-> ****Parcours recommandé :**** Lab 01 (Docker Compose) → Lab 02 (Kubernetes) → ****Lab 03 (Helm)****. Ce lab utilise le dépôt réellement cloné dans `~/devops-labs/lab-devops/dsk-stock-lab03-helm` (commit observé `07a15a9`). Les chemins `labs/dsk-stock-lab03-helm/...` figurant dans une ancienne version du scénario sont incorrects pour cette arborescence.
 
+Votre équipe doit pouvoir installer et mettre à jour la même application de gestion de stock sur plusieurs environnements, sans recopier ni modifier manuellement tous les manifests Kubernetes. Vous utiliserez un **chart Helm**, un **fichier de valeurs local**, puis testerez les **révisions**, les **upgrades**, les **rollbacks** et la **persistance PostgreSQL**.
 
+Ce lab utilise **votre propre infrastructure** : VM Ubuntu avec K3s, cluster Kubernetes existant, Proxmox ou autre. Aucune adresse IP ni StorageClass n'est imposée. Les adresses utilisées dans les exemples doivent être remplacées par les vôtres.
 
+### Objectifs pédagogiques
 
+À la fin de ce lab, vous saurez :
 
-Votre équipe souhaite réinstaller la même application dans plusieurs environnements sans recopier et modifier manuellement tous les manifests. Vous devez utiliser le chart fourni et exprimer les différences de votre infrastructure dans un fichier de valeurs local.
+1. Expliquer les rôles de `Chart.yaml`, `values.yaml`, des templates et d'une release Helm.
+2. Configurer l'accès à Kubernetes pour **kubectl et Helm**, notamment avec K3s.
+3. Choisir une StorageClass existante et personnaliser des valeurs locales.
+4. Déployer PostgreSQL, un Job de migration, une API et un frontend.
+5. Diagnostiquer les images, les Secrets, les PVC et les accès réseau.
+6. Réaliser un `helm upgrade`, consulter l'historique et effectuer un rollback.
+7. Vérifier que les données PostgreSQL survivent à la recréation de son Pod.
 
+---
 
+## 1. Prérequis et architecture
 
-****Niveau :**** Intermédiaire. ****Durée indicative :**** 2 à 3 heures, hors installation de votre infrastructure et téléchargement des images.
+**Connaissances :** Pods, Deployments, StatefulSets, Services, Jobs, PVC, images OCI, notions de YAML.
 
+**Ressources conseillées pour un petit lab :** environ 2 vCPU, 4 Go de RAM et 20 Go de disque libre, à ajuster selon les autres services présents. Les images peuvent occuper plusieurs gigaoctets.
 
+| Outil | Vérification | Utilité |
+|---|---|---|
+| Git | `git --version` | Récupérer les sources |
+| kubectl | `kubectl version --client` | Inspecter Kubernetes |
+| Helm | `helm version` | Gérer les releases |
+| OpenSSL | `openssl version` | Générer un secret JWT |
+| Docker (facultatif) | `docker version` | Construire/publier vos propres images |
 
-Vous travaillez sur ****votre propre infrastructure****. Ce cours n’attribue ni VM, ni IP, ni cluster : vous réutilisez les vôtres. Le choix de Proxmox, Vagrant, d’un autre hyperviseur ou d’un poste local vous appartient. Le [guide d’environnement](ENVIRONNEMENT.md) explique les différences de réseau et d’accès.
+**Architecture logique :** navigateur → frontend Nginx → API backend → PostgreSQL. Un Job applique les migrations de schéma. PostgreSQL monte un PVC ; les Pods applicatifs sont gérés par des Deployments.
 
+> **Important :** K3s utilise `containerd` pour exécuter les Pods. Une image présente dans `docker images` sur la VM n'est pas automatiquement disponible dans K3s. Le moyen le plus simple pour ce lab est un registre accessible au cluster, par exemple GHCR.
 
+## 2. Préparer une VM Ubuntu avec K3s et Helm (si nécessaire)
 
-****Ce que ce lab ajoute :**** Templates Helm, fichier values, release, révision et upgrade.
+**Sautez l'installation de K3s si vous possédez déjà un cluster Kubernetes fonctionnel.** Dans ce cas, configurez seulement votre kubeconfig et installez Helm sur la machine où vous travaillerez.
 
-
-
-## 1. Vérifier vos prérequis
-**### Connaissances**
-
-
-
-Savoir examiner des Pods, Services, Jobs et PVC avec kubectl. Comprendre le rôle d’une migration et d’un registre d’images.
-
-
-
-**### Infrastructure à fournir**
-
-
-
-Votre cluster Kubernetes existant. Le namespace stock-lab03 sera dédié à l’exercice. Le provisionneur de stockage et le registre restent ceux de votre lab ; Longhorn et Harbor ne sont pas imposés. Pour un petit cluster local : environ 2 vCPU, 4 Go de RAM et 20 Go libres.
-
-
-
-Les ressources indiquées sont des estimations pour un lab pédagogique, pas une garantie de dimensionnement. Vérifiez les ressources déjà consommées par vos services.
-
-
-
-**### Outils et résultat attendu**
-
-
-
-\| Prérequis | Commande ou contrôle | Vous pouvez continuer si… |
-
-\|---|---|---|
-
-\| kubectl et accès au cluster | kubectl config current-context ; kubectl get nodes ; kubectl get storageclass | Cluster prêt et stockage choisi. |
-
-\| Helm | helm version | Helm 3 ou version compatible disponible. |
-
-\| Images applicatives | docker version | Vous pouvez construire les images, ou disposez déjà de références accessibles aux nœuds. |
-
-\| OpenSSL | openssl version | Vous pouvez générer votre JWT de démonstration. |
-
-
-
-Git est nécessaire pour le clone ; il est facultatif pour lire et exécuter un ZIP hors exercices Git. Python 3 est requis pour les scripts fournis si vous les utilisez. Les commandes utilisent Bash ou un shell compatible : sous Windows, utilisez WSL2 ou votre VM Linux.
-
-
-
-Les conteneurs embarquent Node et les dépendances de l’application : aucune installation manuelle de React, NestJS ou PostgreSQL sur votre hôte n’est demandée. Le lab CI installe ses outils dans les runners.
-
-
-
-Ne poursuivez pas si un prérequis indispensable échoue : utilisez les liens d’installation d’ENVIRONNEMENT.md et les diagnostics du guide. Installer un outil sur votre PC ne l’installe pas dans votre VM.
-
-
-
-## 1 bis. Installer K3s et Helm sur une VM Ubuntu
-
-Cette section est destinée aux apprenants qui partent d'une **VM Ubuntu sans Kubernetes ni Helm**, comme `test-helm`. Si vous disposez déjà d'un cluster Kubernetes accessible, **n'installez pas un second K3s** : installez uniquement les clients `kubectl` et Helm, puis configurez l'accès à votre cluster existant avec un kubeconfig adapté.
-
-> **Prérequis matériels conseillés pour ce TP :** 2 vCPU, 4 Go de RAM et 20 Go de disque libre au minimum. Les commandes ci-dessous s'exécutent **dans la VM Ubuntu**, pas sur votre Mac. Elles nécessitent un accès Internet et des droits administrateur. K3s crée un cluster local et peut modifier la configuration réseau et les règles de pare-feu de la VM.
-
-### Étape A — Préparer Ubuntu
+### 2.1 Préparer Ubuntu
 
 ```bash
 sudo apt update
@@ -89,9 +55,9 @@ free -h
 df -h /
 ```
 
-### Étape B — Installer K3s (cluster Kubernetes local)
+### 2.2 Installer K3s
 
-Télécharger le script officiel, l'examiner, puis lancer l'installation :
+Consultez d'abord la [documentation officielle K3s](https://docs.k3s.io/quick-start) et les implications réseau. La commande d'installation rapide est :
 
 ```bash
 curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
@@ -99,623 +65,571 @@ less /tmp/install-k3s.sh
 sudo sh /tmp/install-k3s.sh
 ```
 
-K3s installe un service systemd, un runtime `containerd` et les outils Kubernetes, dont `kubectl` (généralement via `/usr/local/bin/kubectl`). **Docker Engine n'est pas requis pour exécuter les Pods K3s**. Si le script échoue, lire les logs plutôt que relancer aveuglément l'installation.
+Vérifiez :
 
 ```bash
 sudo systemctl status k3s --no-pager
-sudo journalctl -u k3s -n 80 --no-pager
-kubectl version --client
 kubectl get nodes -o wide
-kubectl get storageclass
 kubectl get pods -A
+kubectl get storageclass
 ```
 
-**Résultat attendu :** un nœud en état `Ready`, une StorageClass par défaut telle que `local-path`, et les composants système en cours de démarrage ou `Running`. Attendez quelques instants si les Pods système démarrent encore.
+**Attendu :** nœud `Ready`, composants système en fonctionnement et, dans une installation K3s standard, StorageClass `local-path`.
 
-> **Sécurité :** ne publiez jamais `/etc/rancher/k3s/k3s.yaml` dans Git. Ce fichier kubeconfig contient des informations d'accès privilégiées au cluster. Ne désactivez pas le pare-feu par défaut pour « faire fonctionner » le lab : diagnostiquez d'abord les flux nécessaires.
+### 2.3 Installer Helm
 
-### Étape C — Installer Helm
-
-Helm est un **client de gestion de releases Kubernetes** : il utilise le kubeconfig pour communiquer avec l'API Kubernetes. Il ne remplace pas K3s.
-
-Télécharger le script officiel Helm 3, le vérifier avant exécution et l'installer :
+Référence : [installation officielle de Helm](https://helm.sh/docs/intro/install/).
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 -o /tmp/get_helm.sh
 less /tmp/get_helm.sh
 chmod 700 /tmp/get_helm.sh
 sudo /tmp/get_helm.sh
-```
-
-Vérifier que les outils fonctionnent **depuis le même compte utilisateur** :
-
-```bash
 helm version
-helm env
-kubectl config current-context
-kubectl get nodes
-kubectl get storageclass
 ```
 
-**Résultat attendu :** Helm affiche une version, `kubectl` accède au cluster, et le nœud est `Ready`. Sur une VM où vous êtes connecté en `root`, les commandes fonctionnent généralement directement avec la configuration K3s. Pour un utilisateur non privilégié, configurez proprement l'accès au kubeconfig, sans le rendre lisible par tous.
+### 2.4 Indispensable sur K3s : comprendre `KUBECONFIG`
 
-### Étape D — Vérification avant de poursuivre
+Kubernetes expose une API. `kubectl` et Helm sont des **clients distincts** qui doivent connaître son adresse et ses identifiants. Le fichier **kubeconfig** contient ces informations.
 
-```bash
-command -v kubectl
-command -v helm
-kubectl get nodes -o wide
-kubectl get storageclass
-helm version --short
-```
-
-Si `kubectl` répond `command not found`, vérifiez que l'installation K3s s'est achevée et que `/usr/local/bin` est dans le `PATH`. Si `kubectl` indique `connection refused` ou `permission denied`, examinez le service K3s et l'accès au kubeconfig. Si Helm est absent, vérifiez l'exécution du script et son résultat.
-
-**À comprendre avant la suite :** `kubectl` permet de manipuler les ressources Kubernetes ; Helm génère ces ressources à partir du chart `chart/`, des templates et de `values.local.yaml`, puis suit leurs révisions.
-
-Références officielles : [installation K3s](https://docs.k3s.io/quick-start), [installation Helm](https://helm.sh/docs/intro/install/).
-
----
-
-## 2. Récupérer les sources chez vous
-Le dépôt du parcours est `https://github.com/sdiawa/lab-devops.git`. Il doit contenir les sept dossiers nommés `dsk-stock-lab01-docker` à `dsk-stock-lab07-vault-eso`. Les noms de dossier sont significatifs pour les commandes, la CI et ArgoCD.
-
-
-
-**### Méthode A — Cloner avec Git**
-
-
-
-Sur la machine d’exécution choisie :
-
-
-
-```bash
-
-mkdir -p "$HOME/devops-labs"
-
-cd "$HOME/devops-labs"
-
-git clone https://github.com/sdiawa/lab-devops.git
-
-cd lab-devops
-
-git rev-parse --short HEAD
-
-```
-
-
-
-Notez la révision affichée dans votre compte rendu. Si vous avez déjà récupéré le dépôt pour un autre lab, réutilisez ce dossier ; sauvegardez vos modifications locales avant toute mise à jour. N’exécutez pas de reset pour simplement changer de lab.
-
-
-
-Vous êtes maintenant à la racine Git du parcours. Entrez dans le projet :
-
-
-
-```bash
-
-cd dsk-stock-lab03-helm
-
-ls
-
-```
-
-
-
-Résultat attendu : vous voyez `README.md`, `SCENARIO.md`, `GUIDE.md`, `ENVIRONNEMENT.md`, `apps/`, `chart/`, `values.local.example.yaml` et `package.json`. ****Toutes les commandes de déploiement qui suivent partent de ce dossier****, sauf lorsqu’un retour à la racine Git est explicitement indiqué.
-
-
-
-**### Méthode B — Télécharger une archive ZIP**
-
-
-
-1. Ouvrez le dépôt dans votre navigateur.
-
-2. Sélectionnez la branche ou la révision indiquée sur la page du cours.
-
-3. Cliquez sur ****Code****, puis ****Download ZIP****.
-
-4. Décompressez l’archive ; GitHub ajoute généralement le nom de branche au dossier extrait, par exemple `lab-devops-main`.
-
-5. Ouvrez un terminal dans le sous-dossier `dsk-stock-lab03-helm` de cette archive.
-
-6. Vérifiez la présence de `apps/` et `chart/` avant d’exécuter une commande.
-
-
-
-Le ZIP est une copie des sources sans historique Git. Pour les labs 04 et 05, utilisez le fork et le clone pour réaliser les exercices de commits et de livraison. Le ZIP convient pour lire ces cours ; à lui seul, il ne crée pas un dépôt dans lequel vous pouvez pousser.
-
-
-
-**### Si l’exécution se fait dans une VM**
-
-
-
-Clonez directement dans la VM après connexion SSH, ou transférez le dépôt complet. Exemple depuis votre PC, avant d’entrer dans le sous-dossier du lab :
-
-
-
-```bash
-
-scp -r lab-devops utilisateur@ADRESSE_DE_VOTRE_VM:~/
-
-ssh utilisateur@ADRESSE_DE_VOTRE_VM
-
-```
-
-
-
-Dans la VM, entrez dans `~/lab-devops/dsk-stock-lab03-helm`. Adaptez l’utilisateur, l’adresse et le port SSH à votre infrastructure. Pour Vagrant, vous pouvez utiliser le dossier partagé de votre configuration ou les informations de `vagrant ssh-config`. Les clés et les IP ne sont pas fournies par ce dépôt.
-
-
-
-Références : [cloner un dépôt GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) et [télécharger ses sources](https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives).
-
-
-
-## 3. Préparer les paramètres de votre infrastructure
-**### Vérifier le chart réellement présent**
-
-
-
-Depuis `dsk-stock-lab03-helm` :
-
-
-
-```bash
-
-pwd
-
-find chart -maxdepth 3 -type f | sort
-
-cat values.local.example.yaml
-
-sed -n '1,240p' chart/values.yaml
-
-helm version
-
-kubectl config current-context
-
-kubectl get nodes -o wide
-
-kubectl get storageclass
-
-```
-
-
-
-****Important :**** la structure du chart et les clés des valeurs doivent être vérifiées avant de modifier `values.local.yaml`. Les noms des champs proposés dans ce guide sont à confronter à `chart/values.yaml` ; ne supposez pas qu'une variable non utilisée par les templates est prise en compte.
-
-
-
-**### Images : réutiliser GitHub Container Registry (GHCR)**
-
-
-
-Comme dans le Lab 02, ****je recommande un registre Docker**** pour que le cluster puisse télécharger les images. Pour reproduire l'exemple de ce parcours, les images publiées sont :
-
-
+Sur un serveur K3s, le fichier d'administration est généralement :
 
 ```text
-
-ghcr.io/sdiawa/dsk-stock-backend:lab02
-
-ghcr.io/sdiawa/dsk-stock-frontend:lab02
-
+/etc/rancher/k3s/k3s.yaml
 ```
 
+K3s peut configurer son `kubectl` embarqué automatiquement, alors que Helm cherche un autre kubeconfig et tente parfois de joindre `http://localhost:8080`. L'erreur peut ressembler à :
 
+```text
+Kubernetes cluster unreachable: Get "http://localhost:8080/version": connect: connection refused
+```
 
-Les apprenants peuvent utiliser ces images publiques si elles restent accessibles, ou publier leurs propres images avec leur compte GitHub. Pour créer et publier les leurs :
-
-
-
-1. GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic). Sélectionner `write:packages` et une durée limitée ; le token doit être conservé en lieu sûr.
-
-2. Se connecter avec `docker login ghcr.io` et `--password-stdin` (ne jamais coller le token dans le dépôt).
-
-3. Construire les images depuis ****la racine de ce Lab 03****, car les Dockerfiles utilisent des `COPY` relatifs à cette racine.
-
-4. Publier avec `docker push`, puis rendre chaque package ****Public**** dans les paramètres de visibilité GitHub Packages, uniquement pour ce laboratoire.
-
-
+**Dans le shell root de la VM K3s**, configurez explicitement :
 
 ```bash
-
-export GHCR_USER=VOTRE_COMPTE_GITHUB
-
-read -rsp 'GitHub PAT classic : ' GHCR_TOKEN; echo
-
-printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-
-unset GHCR_TOKEN
-
-
-
-docker build -f apps/backend/Dockerfile -t "ghcr.io/${GHCR_USER}/dsk-stock-backend:lab03" .
-
-docker build -f apps/frontend/Dockerfile -t "ghcr.io/${GHCR_USER}/dsk-stock-frontend:lab03" .
-
-docker push "ghcr.io/${GHCR_USER}/dsk-stock-backend:lab03"
-
-docker push "ghcr.io/${GHCR_USER}/dsk-stock-frontend:lab03"
-
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+printf 'KUBECONFIG=%s\n' "$KUBECONFIG"
+kubectl get nodes
+helm list -A
 ```
 
+**Pourquoi ?** `export` transmet la variable aux programmes démarrés depuis ce shell, y compris Helm et kubectl. Elle ne persiste pas automatiquement après une nouvelle connexion SSH.
 
+Pour la rendre permanente **uniquement pour le compte administrateur de cette VM** :
 
-Dans `values.local.yaml`, utilisez ****vos références GHCR exactes**** pour `backend.image` et `frontend.image` si ces clés sont confirmées par `chart/values.yaml`. ****Avec Helm, ne modifiez pas manuellement les images dans les manifests générés : adaptez les valeurs du chart.**** Pour un package privé, configurez `imagePullSecrets` dans les Pods via le chart au lieu de supposer que `docker login` authentifie K3s.
+```bash
+printf '\nexport KUBECONFIG=/etc/rancher/k3s/k3s.yaml\n' >> ~/.bashrc
+source ~/.bashrc
+```
 
+Ne dupliquez pas cette ligne à chaque exercice. Vérifiez d'abord avec `grep KUBECONFIG ~/.bashrc`.
 
+> **Sécurité :** ce kubeconfig donne des privilèges élevés. Ne le commitez jamais, ne le copiez pas dans un dépôt et ne modifiez pas ses permissions pour le rendre lisible par tous. Sur un poste distant ou avec un compte non-root, utilisez un kubeconfig adapté avec les droits nécessaires.
 
+## 3. Récupérer les sources
 
+```bash
+mkdir -p "$HOME/devops-labs"
+cd "$HOME/devops-labs"
+git clone https://github.com/sdiawa/lab-devops.git
+cd lab-devops/dsk-stock-lab03-helm
+pwd
+git rev-parse --short HEAD
+ls -la
+```
 
-Identifiez vos images et votre StorageClass avant de créer les volumes. Choisissez un namespace dédié ; le chart utilise des noms de Services fixes et prévoit une release par namespace. Gardez le fichier de valeurs local hors de Git lorsqu’il contient vos secrets.
+Si le dépôt est déjà cloné, réutilisez-le et préservez vos modifications locales. **Toutes les commandes suivantes partent de `dsk-stock-lab03-helm/`**, sauf mention contraire.
 
+Repérez :
 
+| Élément | Rôle |
+|---|---|
+| `chart/Chart.yaml` | Métadonnées et version du chart |
+| `chart/values.yaml` | Valeurs par défaut |
+| `chart/templates/` | Modèles YAML générés par Helm |
+| `values.local.example.yaml` | Exemple de personnalisation |
+| `values.local.yaml` | Vos paramètres locaux, non destinés à Git |
+| `apps/` | Sources et Dockerfiles de l'application |
 
-Avant les commandes techniques, complétez ce tableau dans votre [compte rendu](COMPTE-RENDU.md) :
+Examinez les fichiers **avant de les modifier** :
 
+```bash
+cat chart/Chart.yaml
+cat chart/values.yaml
+cat values.local.example.yaml
+ls chart/templates
+```
 
+### Comprendre `.Values`
 
-\| Paramètre | Votre valeur |
+Dans un template Helm, `{{ .Values.frontend.replicas }}` lit la clé `frontend.replicas` du jeu de valeurs. Helm part de `chart/values.yaml`, puis applique les valeurs du fichier fourni avec `-f`. Une clé présente dans un fichier de valeurs **n'a aucun effet** si les templates ne la lisent pas.
 
-\|---|---|
+## 4. Préparer les images applicatives
 
-\| Machine qui exécutera les commandes | PC, VM ou serveur choisi |
+Pour reproduire le déploiement validé dans ce parcours, utilisez les images GHCR du Lab 03, **si elles sont publiques et toujours disponibles** :
 
-\| Accès au navigateur | Local ou tunnel SSH |
+```text
+ghcr.io/sdiawa/dsk-stock-backend:lab03
+ghcr.io/sdiawa/dsk-stock-frontend:lab03
+```
 
-\| Contexte Kubernetes, si utilisé | Nom relevé avec kubectl |
+Vous pouvez également publier vos propres images. Depuis le dossier du Lab 03 :
 
-\| Référence des images, si Kubernetes | Registre/tag ou import dans le runtime |
+```bash
+export GHCR_USER=VOTRE_COMPTE_GITHUB
+read -rsp 'GitHub PAT : ' GHCR_TOKEN; echo
+printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+unset GHCR_TOKEN
 
-\| Stockage, si Kubernetes | StorageClass ou PV préparé |
+docker build -f apps/backend/Dockerfile -t "ghcr.io/${GHCR_USER}/dsk-stock-backend:lab03" .
+docker build -f apps/frontend/Dockerfile -t "ghcr.io/${GHCR_USER}/dsk-stock-frontend:lab03" .
+docker push "ghcr.io/${GHCR_USER}/dsk-stock-backend:lab03"
+docker push "ghcr.io/${GHCR_USER}/dsk-stock-frontend:lab03"
+```
 
-\| Révision des sources | Commit Git ou archive utilisée |
+Pour créer un PAT classic : GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic). Pour publier des packages, choisissez les permissions adaptées, notamment `write:packages`, et une durée limitée. Ne stockez jamais le token dans Git. Pour un registre privé, l'authentification Docker de la VM ne suffit pas : les Pods Kubernetes ont besoin d'une configuration de type `imagePullSecrets`.
 
+## 5. Découvrir la StorageClass de votre cluster
 
+Avant de définir un PVC, découvrez les classes de stockage réellement disponibles :
 
-Pour Kubernetes, une image construite dans Docker n’est pas forcément présente dans le runtime du cluster. Avant le déploiement, suivez l’étape 7 d’ENVIRONNEMENT.md : registre accessible aux nœuds, import K3s adapté ou chargement kind. Pour les labs 01 et 04, ce point n’impose pas de créer un cluster.
+```bash
+kubectl get storageclass
+```
 
+**Exemple sur K3s :**
 
+```text
+NAME                   PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE
+local-path (default)   rancher.io/local-path   Delete          WaitForFirstConsumer
+```
 
-## 4. Réaliser le lab pas à pas
-Les fichiers sont déjà fournis dans ce dossier. Lisez chaque action, exécutez ses commandes sur la machine choisie et vérifiez le résultat avant de passer à la suivante. Les fichiers locaux contenant vos paramètres ou vos secrets restent hors de Git.
+Ici, le **nom à copier est `local-path`**, sans le texte `(default)` : cette indication est seulement un marqueur d'affichage.
 
+- **StorageClass :** indique comment provisionner un volume.
+- **PVC :** demande de stockage formulée par l'application.
+- **PV :** volume réellement attribué à la demande.
+- **`Bound` :** PVC associé à un PV.
+- **`1Gi` :** capacité demandée, soit 1 gibioctet.
+- **`RWO` :** `ReadWriteOnce`, accès en lecture/écriture selon les contraintes de montage Kubernetes.
+- **`Delete` :** le PV peut être supprimé lorsque son PVC est supprimé ; attention à la perte des données.
 
+Vous n'avez **pas besoin de créer une nouvelle StorageClass** si une classe adaptée existe déjà. Sur un cluster avec une StorageClass par défaut, le chart permet également de laisser `postgres.storageClass` vide.
 
-**### Fichiers et choix**
+> **Limite du stockage `local-path` :** il est lié au stockage local du nœud ; il ne fournit pas, à lui seul, une haute disponibilité des données entre plusieurs nœuds.
 
-Le chart `chart/` déploie PostgreSQL, ses données, un Job de migration, l'API et Nginx. Il utilise des noms de services fixes : une seule release dans chaque namespace. Installer une autre release dans un namespace distinct.
+## 6. Créer `values.local.yaml` et protéger les secrets
 
+```bash
+cp values.local.example.yaml values.local.yaml
+chmod 600 values.local.yaml
+openssl rand -hex 32
+nano values.local.yaml
+```
 
+Copiez la valeur générée par OpenSSL dans `secrets.jwtSecret`. Ne la partagez pas dans des captures, des logs ou le dépôt Git.
 
-Selon le chart fourni, le Job est nommé avec le numéro de révision Helm. Le backend attend que la table Product existe dans un initContainer. L'option `--wait-for-jobs` permet de ne déclarer l'installation réussie qu'après la fin des migrations. Pour une mise à jour de schéma, prévoir la compatibilité avec les versions applicatives encore en service.
-
-
-
-**### Paramètres à adapter au cluster**
-
-
-
-Dans le fichier `values.local.yaml` utilisé par ce projet, ajouter les paramètres correspondant à votre environnement :
-
-
+**Exemple complet à adapter** (remplacez `VOTRE_COMPTE`, la StorageClass et `IP_DE_VOTRE_VM`) :
 
 ```yaml
-
 backend:
-
+  replicas: 1
   image: ghcr.io/VOTRE_COMPTE/dsk-stock-backend:lab03
 
 frontend:
-
+  replicas: 1
   image: ghcr.io/VOTRE_COMPTE/dsk-stock-frontend:lab03
+  apiBaseUrl: "http://IP_DE_VOTRE_VM:3001/api"
 
 postgres:
-
-  storageClass: NOM_DE_VOTRE_STORAGECLASS
-
+  storageClass: local-path
   storage: 1Gi
 
+secrets:
+  jwtSecret: REMPLACER_PAR_LE_RESULTAT_OPENSSL
 ```
 
+**Important :** `IP_DE_VOTRE_VM` est un placeholder, pas une URL à laisser telle quelle. Pour le cas testé dans ce lab, l'adresse LAN de la VM était `10.0.0.50`, mais chaque apprenant utilise sa propre IP.
 
+Pour le tunnel SSH décrit plus loin, choisissez plutôt `http://localhost:3001/api` ; pour un Ingress qui route correctement `/api` sur le même domaine, une URL relative `/api` peut être préférable. L'URL doit être accessible **depuis le navigateur**, pas seulement depuis le Pod frontend.
 
-Ces valeurs sont des exemples à remplacer. Sur kind ou après import sous les noms de lab, conserver les images d'origine. Omettre `storageClass` pour utiliser la classe par défaut. Garder les autres paramètres du fichier, notamment le JWT du lab 03/06 ou `existingSecret` du lab 07. Le chart accepte désormais une classe de stockage explicite.
+**Ne remplacez pas tout le fichier à l'aveugle :** conservez les paramètres existants nécessaires à votre variante. Le chart peut aussi accepter `existingSecret` pour un Secret Kubernetes déjà présent.
 
-
-
-**### Action 1 — Créer un fichier de valeurs local**
+Vérifiez que le fichier local n'est pas suivi par Git :
 
 ```bash
-
-cp values.local.example.yaml values.local.yaml
-
-chmod 600 values.local.yaml
-
-openssl rand -hex 32
-
-# Éditer values.local.yaml et y définir le JWT généré, les images et le stockage
-
+git status --short -- values.local.yaml
 ```
 
-Remplacer la valeur `secrets.jwtSecret` dans `values.local.yaml`. Ce fichier est ignoré par Git. Les valeurs du chart sont des identifiants de démonstration ; utiliser uniquement des caractères alphanumériques et underscores pour les paramètres de connexion simplifiés.
+S'il apparaît comme fichier non suivi, ajoutez-le à votre `.gitignore` avant tout commit. Attention : les Secrets Kubernetes et l'historique des releases Helm ne constituent pas un coffre-fort ; utilisez des identifiants de démonstration pour ce lab.
 
+## 7. Exposer correctement l'URL de l'API dans le chart
 
+### 7.1 Comprendre le problème `Network Error`
 
-**### Action 2 — Examiner le rendu**
+L'interface peut s'afficher, mais l'inscription échouer si le navigateur appelle une API inaccessible. Le frontend utilise `VITE_API_BASE_URL` **au démarrage du conteneur** pour générer le fichier `/usr/share/nginx/html/env.js`.
 
-```bash
+Sans configuration explicite, l'image utilisée lors de nos tests renvoyait :
 
-helm lint ./chart -f values.local.yaml
-
-helm template stock ./chart -n stock-lab03 -f values.local.yaml > /tmp/stock-lab03-rendered.yaml
-
-# ATTENTION : ce fichier peut contenir des Secrets. Ne pas le committer.
-
-grep -nE "image:|storageClassName:|kind: (Deployment|StatefulSet|Job|Secret)" /tmp/stock-lab03-rendered.yaml
-
+```javascript
+window.__APP_CONFIG__ = {
+  apiBaseUrl: "https://api.stock.dsk.lab/api"
+};
 ```
 
-Le rendu affiche le Secret : garder cette sortie locale. Repérer les replicas, images, volumes et noms de services.
+Cette URL n'est pas forcément accessible depuis votre ordinateur. **La bonne correction consiste à transmettre une valeur par Helm**, pas à modifier manuellement le Deployment en direct.
 
+### 7.2 Ajouter une valeur par défaut
 
-
-**### Action 3 — Installer**
-
-```bash
-
-helm upgrade --install stock ./chart \
-
-  --namespace stock-lab03 --create-namespace \
-
-  -f values.local.yaml \
-
-  --wait --wait-for-jobs --timeout 5m
-
-kubectl -n stock-lab03 get pods,jobs,pvc
-
-kubectl -n stock-lab03 port-forward service/frontend 8080:80
-
-```
-
-Ouvrir http://localhost:8080 puis suivre la recette métier ci-dessous. Si vous utilisez une VM distante, reportez-vous à la section accès réseau.
-
-
-
-**### Accès depuis un ordinateur différent de la VM K3s**
-
-
-
-`kubectl port-forward` écoute par défaut sur `127.0.0.1` ****de la machine qui exécute la commande****. Si votre navigateur est sur un Mac et Kubernetes sur une VM, `localhost:8080` sur le Mac ne pointe pas vers la VM.
-
-
-
-****Méthode recommandée : tunnel SSH depuis votre ordinateur**** (les deux port-forwards sont lancés dans deux terminaux de la VM) :
-
-
-
-```bash
-
-# Terminal 1, sur la VM :
-
-kubectl -n stock-lab03 port-forward svc/frontend 8080:80
-
-# Terminal 2, sur la VM :
-
-kubectl -n stock-lab03 port-forward svc/backend 3001:3001
-
-# Terminal 3, sur votre Mac (laissez le tunnel ouvert) :
-
-ssh -L 8080:127.0.0.1:8080 -L 3001:127.0.0.1:3001 UTILISATEUR@IP_VM
-
-```
-
-
-
-Naviguez sur `http://localhost:8080`. Pour un accès direct sur le LAN, `kubectl port-forward --address 0.0.0.0` est possible, ****mais expose les ports sur les interfaces réseau de la VM**** : réservez-le à un réseau de confiance, avec filtrage adapté.
-
-
-
-**### Éviter l'erreur frontend « Network Error »**
-
-
-
-Le frontend utilise `VITE_API_BASE_URL` au ****démarrage du conteneur**** pour générer `/usr/share/nginx/html/env.js`. Si cette valeur est absente ou pointe vers une URL inaccessible depuis le navigateur, l'interface peut s'afficher mais les inscriptions échouent.
-
-
-
-Dans le Lab 02, nous avons diagnostiqué le problème avec :
-
-
-
-```bash
-
-kubectl -n stock-lab03 exec deployment/frontend -- cat /usr/share/nginx/html/env.js
-
-kubectl -n stock-lab03 get deployment frontend -o yaml | grep -A 15 'env:'
-
-```
-
-
-
-****Avec Helm, corrigez durablement le chart****, pas uniquement le Deployment en direct. Cherchez comment les templates frontend exposent les variables d'environnement :
-
-
-
-```bash
-
-grep -RIn 'VITE_API_BASE_URL\|VITE_API_URL\|frontend.*env' chart apps/frontend/entrypoint.sh
-
-```
-
-
-
-Si le chart ne transmet pas encore la variable, ajoutez un paramètre `frontend.apiBaseUrl` dans `chart/values.yaml` puis utilisez-le dans le template du Deployment frontend :
-
-
+Ouvrez `chart/values.yaml` et vérifiez la section `frontend`. Ajoutez-y `apiBaseUrl` si elle est absente :
 
 ```yaml
-
-# Exemple de fragment à insérer dans spec.template.spec.containers[] du frontend
-
-env:
-
-  - name: VITE_API_BASE_URL
-
-    value: {{ .Values.frontend.apiBaseUrl | quote }}
-
+frontend:
+  image: dsk-stock-frontend:lab
+  replicas: 1
+  apiBaseUrl: "https://api.stock.dsk.lab/api"
 ```
 
+Conservez les autres clés existantes. La valeur locale définie dans `values.local.yaml` prendra le dessus.
 
+### 7.3 Modifier le template frontend au bon endroit
 
-Ajoutez ensuite `frontend.apiBaseUrl` dans `values.local.yaml` avec l'URL ****accessible au navigateur****. Dans le cas du tunnel SSH ci-dessus, `http://localhost:3001/api` convient ; avec un Ingress qui route `/api` vers le backend, préférez `/api` pour une URL relative au même domaine. Vérifiez le rendu avec `helm template`, puis relancez `helm upgrade --install`. ****Ne copiez pas ce fragment sans vérifier l'emplacement et l'indentation dans le template réel.****
+Ouvrez `chart/templates/app.yaml`. Dans le **Deployment frontend**, repérez `spec.template.spec.containers` puis ajoutez `env` au même niveau que `image`, `imagePullPolicy` et `ports` :
 
+```yaml
+# Extrait du Deployment frontend, à replacer dans le template existant
+spec:
+  template:
+    spec:
+      containers:
+        - name: frontend
+          image: {{ .Values.frontend.image | quote }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: VITE_API_BASE_URL
+              value: {{ .Values.frontend.apiBaseUrl | quote }}
+          ports:
+            - containerPort: 80
+```
 
+**Attention : cet extrait illustre l'emplacement, il ne remplace pas le Deployment entier.** Conservez ses labels, sélecteurs, probes, ressources et autres champs existants.
 
-**### Action 4 — Mettre à jour**
+La syntaxe `{{ .Values.frontend.apiBaseUrl | quote }}` demande à Helm de lire la valeur puis de la rendre comme chaîne YAML entre guillemets.
 
-Dans `values.local.yaml`, passer `backend.replicas` à 2 (si ce paramètre est utilisé par les templates) puis relancer la commande d'installation. Examiner :
+**Erreur réelle rencontrée :** ajouter `env` directement sous `spec` du Deployment provoque un warning de type :
+
+```text
+Warning: unknown field "spec.env"
+```
+
+Dans ce cas, Kubernetes peut ignorer ce champ. Une commande Helm réussie ne signifie pas que tous les champs YAML ont été appliqués.
+
+## 8. Vérifier le chart avant installation
 
 ```bash
+helm lint ./chart -f values.local.yaml
+helm template stock ./chart --namespace stock-lab03 -f values.local.yaml > /tmp/stock-lab03-rendered.yaml
+```
 
-helm history stock -n stock-lab03
+Le rendu peut contenir un Secret : **ne le commitez pas et ne partagez pas le fichier complet**.
+
+Vérifiez les ressources générées :
+
+```bash
+grep -nE 'kind: (Deployment|StatefulSet|Job|PersistentVolumeClaim|Secret)|image:|storageClassName:|VITE_API_BASE_URL' /tmp/stock-lab03-rendered.yaml
+```
+
+**À observer :** images GHCR, StorageClass correcte, variable d'environnement dans le conteneur frontend, PVC PostgreSQL et Job de migration. `helm lint` vérifie le chart, mais n'est pas une garantie de validité de tous les champs Kubernetes ; inspectez le YAML rendu.
+
+## 9. Installer la release Helm
+
+```bash
+helm upgrade --install stock ./chart --namespace stock-lab03 --create-namespace -f values.local.yaml --wait --wait-for-jobs --timeout 5m
+```
+
+**Explications :**
+
+- `stock` : nom de la release.
+- `./chart` : chart local.
+- `--namespace` : espace de noms cible.
+- `--create-namespace` : crée le namespace s'il manque.
+- `-f` : surcharge les valeurs par défaut.
+- `--wait` : attend la disponibilité des ressources prises en charge.
+- `--wait-for-jobs` : attend également la réussite des Jobs.
+- `--timeout 5m` : délai maximal d'attente de l'opération.
+
+Vérifiez :
+
+```bash
+helm status stock -n stock-lab03
+helm list -n stock-lab03
+kubectl -n stock-lab03 get pods,jobs,pvc
+kubectl -n stock-lab03 get deployments,statefulsets,services
+```
+
+**Attendu :** release `deployed`, frontend/backend/PostgreSQL `Running`, Job de migration `Completed`, PVC `Bound`. Le nom exact du Job dépend de la révision Helm.
+
+```bash
+kubectl -n stock-lab03 logs deploy/backend --tail=30
+kubectl -n stock-lab03 get jobs
+# Remplacer NOM_JOB par le nom affiché :
+kubectl -n stock-lab03 logs job/NOM_JOB --tail=30
+```
+
+## 10. Accéder à l'application depuis votre navigateur
+
+### Cas A — Navigateur sur la même machine que kubectl
+
+Dans deux terminaux, laissez ces commandes actives :
+
+```bash
+kubectl -n stock-lab03 port-forward svc/frontend 8080:80
+```
+
+```bash
+kubectl -n stock-lab03 port-forward svc/backend 3001:3001
+```
+
+Ouvrez `http://localhost:8080`. L'URL API du frontend doit être `http://localhost:3001/api` dans ce cas.
+
+### Cas B — Navigateur sur un Mac/PC, cluster sur une VM distante (recommandé)
+
+Sur la VM, lancez les deux port-forwards ci-dessus. Sur votre ordinateur, ouvrez un troisième terminal :
+
+```bash
+ssh -L 8080:127.0.0.1:8080 -L 3001:127.0.0.1:3001 UTILISATEUR@IP_DE_VOTRE_VM
+```
+
+Ouvrez `http://localhost:8080` sur votre ordinateur. Le navigateur peut alors joindre l'API sur `http://localhost:3001/api` via le tunnel.
+
+### Cas C — Accès direct sur un réseau local de confiance
+
+Sur la VM, vous pouvez écouter sur toutes les interfaces :
+
+```bash
+kubectl -n stock-lab03 port-forward --address 0.0.0.0 svc/frontend 8080:80
+```
+
+Dans un autre terminal :
+
+```bash
+kubectl -n stock-lab03 port-forward --address 0.0.0.0 svc/backend 3001:3001
+```
+
+Ouvrez `http://IP_DE_VOTRE_VM:8080`. Configurez `frontend.apiBaseUrl` à `http://IP_DE_VOTRE_VM:3001/api`, puis appliquez `helm upgrade` si nécessaire.
+
+> **Sécurité :** `--address 0.0.0.0` expose les ports sur toutes les interfaces réseau de la VM. Réservez cette méthode à un réseau de confiance, avec filtrage adapté ; préférez le tunnel SSH dans les autres cas.
+
+### Vérifier `env.js` et l'API
+
+```bash
+kubectl -n stock-lab03 exec deploy/frontend -- wget -qO- http://127.0.0.1/env.js
+
+kubectl -n stock-lab03 exec deploy/frontend -- printenv VITE_API_BASE_URL
+```
+
+Le fichier doit contenir l'URL réellement accessible depuis votre navigateur. Le backend possède aussi une route `/health` ; via le port-forward :
+
+```bash
+curl -i http://localhost:3001/health
+curl -i http://localhost:3001/api/products
+```
+
+**Attendu :** `/health` renvoie `200` ; `/api/products` peut renvoyer `401` sans JWT, ce qui confirme la protection de la route. Vérifiez également l'inscription et la connexion dans le navigateur.
+
+## 11. Recette métier : tester l'application
+
+Depuis l'interface :
+
+1. Créez un compte de démonstration et connectez-vous.
+2. Ouvrez **Produits** et créez un produit, par exemple « Clavier DevOps » (quantité 10, prix 25 €, seuil d'alerte 3, selon les champs proposés).
+3. Vérifiez qu'il apparaît dans la liste et que le tableau de bord se met à jour.
+4. Testez les mouvements de stock prévus dans le Lab 02 et le refus d'une sortie supérieure au stock disponible.
+
+**Important :** un Pod `Running` ne valide pas à lui seul la recette métier. Le navigateur doit réellement communiquer avec l'API et la base.
+
+## 12. Vérifier la persistance PostgreSQL
+
+**Prérequis :** au moins un produit a été créé et est visible dans l'interface.
+
+Avant toute suppression, observez le PVC :
+
+```bash
+kubectl -n stock-lab03 get pvc
+kubectl -n stock-lab03 get statefulset postgres
+```
+
+**Dans ce lab uniquement**, supprimez le Pod PostgreSQL :
+
+```bash
+kubectl -n stock-lab03 delete pod postgres-0
+kubectl -n stock-lab03 rollout status statefulset/postgres --timeout=180s
+kubectl -n stock-lab03 get pods,pvc
+```
+
+Le StatefulSet recrée `postgres-0`. Le PVC `data-postgres-0` doit rester `Bound` et conserver son identifiant de volume. Rechargez ensuite la liste des produits dans le navigateur.
+
+**Résultat attendu :** le produit existe toujours. C'est la vérification de bout en bout de la persistance des données après recréation du Pod.
+
+> **À ne pas confondre :** persistance locale ≠ sauvegarde ≠ haute disponibilité. La suppression du PVC, une panne de disque ou la perte du nœud peuvent entraîner une perte de données. N'effectuez pas ce test destructif sur une base de production.
+
+## 13. Mettre à jour une release avec `helm upgrade`
+
+Modifiez une valeur du fichier local, par exemple `backend.replicas` de `1` à `2` si votre VM dispose des ressources nécessaires :
+
+```yaml
+backend:
+  replicas: 2
+```
+
+Puis appliquez :
+
+```bash
+helm upgrade stock ./chart --namespace stock-lab03  -f values.local.yaml  --wait --wait-for-jobs --timeout 5m
 
 kubectl -n stock-lab03 get deployment backend
-
+helm history stock -n stock-lab03
 ```
 
-Les Jobs achevés de révisions précédentes peuvent rester présents ; ils servent ici de trace d'exécution. Le retour à une version applicative ne revient pas automatiquement sur les migrations de base.
+**Attendu :** deux réplicas backend disponibles et une nouvelle révision Helm. Rétablissez `replicas: 1` si les ressources de votre VM sont limitées, puis exécutez à nouveau `helm upgrade`.
 
+## 14. Comprendre `helm history` et tester `helm rollback`
 
-
-## 5. Recette : démontrer que votre mission est réussie
-\| Point de contrôle | Résultat à démontrer |
-
-\|---|---|
-
-\| Rendu | helm lint passe et le rendu contient les images et le stockage choisis. |
-
-\| Installation | La release est deployed et le Job de migration a réussi. |
-
-\| Métier | Le scénario métier fonctionne avec les données dans le PVC. |
-
-\| Upgrade | Le backend passe à deux replicas et une nouvelle révision apparaît. |
-
-\| Isolation | Une seconde installation dans un autre namespace possède ses propres données. |
-
-
-
-Ouvrez le frontend depuis votre PC et exécutez la recette métier détaillée du Lab 02. Elle vérifie l’inscription, la création du clavier, les mouvements et le refus d’une sortie impossible. L’API et l’interface font partie du même exercice ; un Pod Running seul ne valide pas la mission.
-
-
-
-Vous pouvez aussi lancer :
-
-
+### 14.1 Lire l'historique
 
 ```bash
-
-curl -i http://localhost:3001/health
-
-curl -i http://localhost:3001/api/products
-
+helm history stock -n stock-lab03
 ```
 
+- `deployed` : révision active.
+- `superseded` : révision remplacée par une autre.
+- `rollback` : création d'une **nouvelle révision** à partir d'une configuration ancienne.
 
+**Exemple réellement observé pendant la validation du lab :**
 
-Ces commandes testent la santé du backend (`200`) et la protection de la route produits (`401` sans JWT). Lancez-les depuis une machine qui accède au port-forward du backend. Pour tester l’inscription et les mouvements de stock, utilisez l’interface du frontend.
+| Révision | État final observé | Opération |
+|---|---|---|
+| 1 | superseded | Installation initiale |
+| 2 | superseded | Upgrade sans configuration API frontend correcte |
+| 3 | superseded | Upgrade avec `VITE_API_BASE_URL` correcte |
+| 4 | superseded | Rollback vers 2 |
+| 5 | superseded | Rollback vers 2 |
+| 6 | deployed | Rollback vers 3 : configuration fonctionnelle restaurée |
 
+Ces numéros sont **un exemple de session**, pas des numéros garantis pour votre cluster. Le deuxième rollback vers 2 reflète l'historique effectivement observé ; il n'est pas nécessaire de le reproduire.
 
-
-**### Si une vérification échoue**
-
-
+### 14.2 Identifier une révision cible sans divulguer les secrets
 
 ```bash
+helm history stock -n stock-lab03
+helm get manifest stock -n stock-lab03 --revision NUMERO | grep -A 12 'name: frontend'
+```
 
-helm status stock -n stock-lab03
+Vérifiez si la variable `VITE_API_BASE_URL` existe dans le conteneur frontend. **Ne partagez pas la sortie complète de `helm get values` ou des manifests contenant des Secrets.**
 
-kubectl -n stock-lab03 get jobs
+### 14.3 Effectuer un rollback contrôlé
 
-kubectl -n stock-lab03 get jobs
+Choisissez une révision antérieure connue, puis :
 
-# Remplacer NOM_JOB par le nom réellement affiché :
+```bash
+helm rollback stock NUMERO_ANCIEN -n stock-lab03 --wait --timeout 5m
 
-kubectl -n stock-lab03 logs job/NOM_JOB
+helm history stock -n stock-lab03
+kubectl -n stock-lab03 rollout status deployment/frontend
+kubectl -n stock-lab03 exec deploy/frontend -- wget -qO- http://127.0.0.1/env.js
+```
 
+Pendant la validation, le rollback vers une révision dépourvue de `VITE_API_BASE_URL` a restauré `https://api.stock.dsk.lab/api` dans `env.js`. La commande `printenv VITE_API_BASE_URL` retournait alors le code `1` : variable absente.
+
+### 14.4 Restaurer la configuration fonctionnelle
+
+Repérez dans `helm history` la révision qui contenait la bonne URL, puis :
+
+```bash
+helm rollback stock NUMERO_FONCTIONNEL -n stock-lab03 --wait --timeout 5m
+
+helm history stock -n stock-lab03
+kubectl -n stock-lab03 exec deploy/frontend -- wget -qO- http://127.0.0.1/env.js
 kubectl -n stock-lab03 get pods
-
-# Vérifier le nom exact de l’initContainer dans le Deployment :
-
-kubectl -n stock-lab03 get deployment backend -o yaml | grep -A 18 initContainers:
-
 ```
 
-Adapter le suffixe du Job à la révision. Si l'installation attend, diagnostiquer la base et les migrations avant d'augmenter le timeout.
+**À comprendre :** un rollback restaure les ressources et les valeurs Helm enregistrées, mais **ne restaure pas automatiquement le contenu de PostgreSQL ni n'annule les migrations SQL**. Une stratégie de sauvegarde et de compatibilité de schéma est nécessaire pour la production.
 
+> **Remarque importante :** après un rollback, vos fichiers locaux ne sont pas automatiquement réécrits. Avant un prochain `helm upgrade`, vérifiez que le chart et `values.local.yaml` correspondent à la configuration que vous souhaitez conserver.
 
+## 15. Diagnostic : erreurs rencontrées et solutions
 
-## 6. Questions pour comprendre ce que vous avez fait
-1. Quel est l’avantage d’un fichier de valeurs par environnement ?
+| Symptôme | Cause possible | Vérification ou correction |
+|---|---|---|
+| Helm tente `localhost:8080` | Kubeconfig absent ou incorrect | `export KUBECONFIG=/etc/rancher/k3s/k3s.yaml`, puis `helm list -A` |
+| PVC `Pending` | StorageClass inexistante ou provisionnement en attente | `kubectl get storageclass`, `kubectl describe pvc -n stock-lab03 data-postgres-0` |
+| `ImagePullBackOff` | Image/tag inaccessible ou registre privé | `kubectl describe pod -n stock-lab03 NOM_POD`, vérifier GHCR et `imagePullSecrets` |
+| Frontend visible, inscription `Network Error` | URL API inaccessible depuis le navigateur | Inspecter `env.js`, `VITE_API_BASE_URL`, port-forward et tunnel |
+| `unknown field "spec.env"` | `env` placé hors du conteneur dans le YAML | Corriger l'indentation dans `chart/templates/app.yaml` |
+| Job de migration bloqué | PostgreSQL non prêt, identifiants ou schéma incorrects | `kubectl get jobs`, `kubectl logs job/NOM_JOB` |
+| Disque saturé | Images et cache de build | `df -h /`, `docker system df` ; nettoyer uniquement les caches inutilisés après inspection |
+| Le rollback réussit mais l'application échoue | Configuration ancienne incompatible | Examiner les manifests de révision et refaire la recette métier |
 
-2. Pourquoi la StorageClass doit-elle être choisie avant la première installation ?
-
-3. Pourquoi helm rollback ne restaure-t-il pas automatiquement la base SQL ?
-
-
-
-**### Exercices complémentaires**
-
-
-
-1. Déployer une deuxième installation dans `stock-lab03-b` avec un nouveau fichier de valeurs.
-
-2. Modifier les requests et limits en les exposant dans `values.yaml`.
-
-3. Ajouter un Ingress en option ; préciser l'Ingress Controller et le DNS requis.
-
-4. Expliquer pourquoi un hook pre-install de migration échouerait si PostgreSQL n'existe pas encore.
-
-5. Remplacer les identifiants rendus dans le chart par un Secret existant via `existingSecret`.
-
-
-
-Livrable : rendu commenté, historique d'upgrade, scénario métier et comparaison des deux namespaces.
-
-
-
-## 7. Votre livrable
-Complétez [COMPTE-RENDU.md](COMPTE-RENDU.md) avec votre architecture, vos paramètres, le résultat des points de contrôle, les incidents rencontrés et vos réponses. Joignez les commandes de diagnostic ou des captures utiles. Masquez les mots de passe, JWT, clés et kubeconfigs.
-
-
-
-Le résultat attendu est une installation ou une CI que vous pouvez expliquer et refaire, avec une révision de sources identifiée. Votre variante d’infrastructure doit être vérifiée sur votre cluster, avec les sorties des commandes et les tests métier.
-
-
-
-## 8. Terminer votre session
-Arrêtez les port-forwards et tunnels avec Ctrl+C. Utilisez le nettoyage de la partie technique uniquement pour les ressources créées par cet exercice. Conservez les données si vous souhaitez poursuivre ; la suppression d’un volume ou d’un namespace peut les détruire. Votre cluster, votre VM et les services partagés de votre infrastructure n’ont pas à être supprimés pour terminer un lab.
-
-
-
-**### Nettoyage des ressources de cet exercice**
-
-
+Commandes générales :
 
 ```bash
-
-helm uninstall stock -n stock-lab03
-
+helm status stock -n stock-lab03
+kubectl -n stock-lab03 get pods,jobs,pvc,events
+kubectl -n stock-lab03 describe deployment frontend
+kubectl -n stock-lab03 logs deploy/backend --tail=100
+kubectl -n stock-lab03 get jobs
 ```
 
-Les PVC créés par le StatefulSet peuvent rester après désinstallation. Supprimer `stock-lab03` uniquement si vous voulez également supprimer ces données.
+Évitez de supprimer aveuglément les volumes Docker, les PVC ou les ressources système K3s pour libérer de l'espace.
 
+## 16. Exercices complémentaires
 
+1. Déployer une deuxième installation dans `stock-lab03-b` avec un fichier de valeurs distinct, puis vérifier l'isolation des données.
+2. Exposer les `requests` et `limits` dans `values.yaml`, puis mesurer leur effet sur les Pods.
+3. Ajouter un Ingress avec un nom DNS et un contrôleur réellement présents dans votre cluster.
+4. Expliquer pourquoi un Job de migration lancé avant la disponibilité de PostgreSQL peut échouer.
+5. Utiliser `existingSecret` à la place des identifiants de démonstration définis dans le chart.
 
-Référence : [documentation Helm](https://helm.sh/docs/).
+### Questions de compréhension
+
+1. Pourquoi `helm template` n'installe-t-il aucune ressource dans Kubernetes ?
+2. Quelle différence existe entre `values.yaml` et `values.local.yaml` ?
+3. Pourquoi faut-il choisir une StorageClass existante avant le déploiement de PostgreSQL ?
+4. Pourquoi une image construite avec Docker peut-elle être invisible depuis K3s ?
+5. Pourquoi `localhost` dans un navigateur Mac ne pointe-t-il pas vers la VM K3s ?
+6. Quelle est la différence entre un Deployment et un StatefulSet ?
+7. Pourquoi un rollback Helm ne restaure-t-il pas les anciennes données SQL ?
+8. Pourquoi une nouvelle révision apparaît-elle après un rollback ?
+
+## 17. Recette finale et livrable
+
+| Contrôle | Preuve attendue |
+|---|---|
+| Kubeconfig | Helm et kubectl accèdent au même cluster |
+| Chart | `helm lint` passe ; `helm template` rend les bonnes valeurs |
+| Déploiement | Release `deployed`, Pods `Running`, Job `Completed` |
+| Stockage | PVC PostgreSQL `Bound` avec la StorageClass choisie |
+| Réseau | `env.js` contient l'URL API accessible au navigateur |
+| Métier | Inscription, connexion et produit visibles |
+| Persistance | Produit toujours présent après recréation de `postgres-0` |
+| Révisions | Upgrade, history, rollback et restauration vérifiés |
+
+Complétez `COMPTE-RENDU.md` avec votre architecture, vos commandes, vos captures utiles, les erreurs rencontrées et vos réponses. **Masquez** les JWT, mots de passe, tokens, kubeconfigs et autres données sensibles.
+
+## 18. Terminer le lab et nettoyer (facultatif)
+
+Arrêtez les port-forwards et tunnels avec `Ctrl+C`.
+
+Si vous souhaitez **conserver les données pour le lab suivant**, ne désinstallez pas PostgreSQL et ne supprimez pas son PVC.
+
+Pour supprimer la release :
+
+```bash
+helm uninstall stock -n stock-lab03
+```
+
+Les PVC d'un StatefulSet peuvent subsister après désinstallation. **Ne supprimez le namespace et les PVC que si vous acceptez de perdre les données de l'exercice.** Ne supprimez ni votre VM ni les services partagés du cluster pour simplement terminer le lab.
+
+---
+
+**Références :** [K3s](https://docs.k3s.io/) · [Helm](https://helm.sh/docs/) · [Kubernetes — Persistent Volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) · [Kubernetes — StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/).
