@@ -20,7 +20,7 @@ jobs:
       - run: npm install -g pnpm@8.15.5
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
-      - run: pnpm --filter dsk-stock-backend exec vitest run
+      - run: pnpm --filter dsk-stock-backend exec jest --runInBand --passWithNoTests
       - run: pnpm --filter dsk-stock-frontend exec vitest run
       - run: pnpm --filter dsk-stock-frontend exec tsc --noEmit
       - run: pnpm build
