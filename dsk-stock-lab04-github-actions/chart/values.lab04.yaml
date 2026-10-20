@@ -1,0 +1,16 @@
+backend:
+  image: ghcr.io/prod0751/lab-devops-backend:8eff71fdce0a0f919aa1e67f1fe05474f25927f4
+  replicas: 1
+
+frontend:
+  image: ghcr.io/prod0751/lab-devops-frontend:8eff71fdce0a0f919aa1e67f1fe05474f25927f4
+  replicas: 1
+  apiBaseUrl: "http://10.0.0.50:3101/api"
+
+imagePullPolicy: IfNotPresent
+
+postgres:
+  image: postgres:15-alpine
+  storage: 1Gi
+  storageClass: local-path
+existingSecret: stock-secrets

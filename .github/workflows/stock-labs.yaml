@@ -27,7 +27,7 @@ jobs:
       - uses: azure/setup-helm@v5
         with:
           version: v3.18.4
-      - run: helm lint ../dsk-stock-lab03-helm/chart
+      - run: helm lint chart -f chart/values.lab04.yaml
   images:
     needs: verify
     runs-on: ubuntu-latest
@@ -62,3 +62,54 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+  deploy:
+    name: Deploy to K3s
+    needs: [verify, images]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Linux, X64]
+
+    permissions:
+      contents: read
+
+    concurrency:
+      group: stock-lab04-deploy
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Verify Kubernetes access
+        env:
+          KUBECONFIG: /home/github-runner/.kube/config
+        run: |
+          test "$(kubectl auth can-i update deployments -n stock-lab04)" = "yes"
+          helm status stock -n stock-lab04
+
+      - name: Deploy with Helm
+        env:
+          KUBECONFIG: /home/github-runner/.kube/config
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          helm upgrade --install stock \
+            ./dsk-stock-lab04-github-actions/chart \
+            --namespace stock-lab04 \
+            --values ./dsk-stock-lab04-github-actions/chart/values.lab04.yaml \
+            --set-string backend.image=ghcr.io/prod0751/lab-devops-backend:${IMAGE_TAG} \
+            --set-string frontend.image=ghcr.io/prod0751/lab-devops-frontend:${IMAGE_TAG} \
+            --atomic \
+            --wait \
+            --wait-for-jobs \
+            --timeout 10m
+
+      - name: Verify deployment
+        env:
+          KUBECONFIG: /home/github-runner/.kube/config
+        run: |
+          kubectl rollout status deployment/backend \
+            -n stock-lab04 --timeout=180s
+
+          kubectl rollout status deployment/frontend \
+            -n stock-lab04 --timeout=180s
+
+          helm status stock -n stock-lab04
