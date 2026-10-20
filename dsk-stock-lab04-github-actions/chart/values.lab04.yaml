@@ -5,7 +5,7 @@ backend:
 frontend:
   image: ghcr.io/prod0751/lab-devops-frontend:8eff71fdce0a0f919aa1e67f1fe05474f25927f4
   replicas: 1
-  apiBaseUrl: "http://10.0.0.50:3101/api"
+  apiBaseUrl: "/api"
 
 imagePullPolicy: IfNotPresent
 
@@ -14,3 +14,8 @@ postgres:
   storage: 1Gi
   storageClass: local-path
 existingSecret: stock-secrets
+
+ingress:
+  enabled: true
+  className: traefik
+  host: stock.dsk.lab
