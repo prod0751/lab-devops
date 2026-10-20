@@ -88,15 +88,10 @@ Déconnectez-vous puis reconnectez-vous avant de vérifier avec `docker ps`. **S
 ### Dépannage rapide
 
 | Symptôme | Cause probable | Vérification / correction |
-
 |---|---|---|
-
 | `404 ... /linux/debian noble Release` | Dépôt Debian utilisé sur Ubuntu | Corriger l'URL en `/linux/ubuntu` |
-
 | `Package docker-ce has no installation candidate` | Dépôt absent ou invalide | Vérifier `docker.sources` puis `sudo apt update` |
-
 | `Cannot connect to the Docker daemon` | Service arrêté ou droits insuffisants | `sudo systemctl status docker` ; tester avec `sudo docker ps` |
-
 | `permission denied ... docker.sock` | Utilisateur non autorisé | Utiliser `sudo`, ou revoir l'appartenance au groupe `docker` |
 
 Documentation officielle : https\://docs.docker.com/engine/install/ubuntu/
