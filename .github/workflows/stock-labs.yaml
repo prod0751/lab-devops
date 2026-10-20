@@ -1,0 +1,64 @@
+name: DSK Stock labs
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dsk-stock-lab04-github-actions
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - run: npm install -g pnpm@8.15.5
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm --filter dsk-stock-backend test --runInBand
+      - run: pnpm --filter dsk-stock-frontend exec vitest run
+      - run: pnpm --filter dsk-stock-frontend exec tsc --noEmit
+      - run: pnpm build
+      - uses: azure/setup-helm@v5
+        with:
+          version: v3.18.4
+      - run: helm lint labs/dsk-stock-lab03-helm/chart
+  images:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Image name
+        id: image
+        shell: bash
+        env:
+          LAB_REPOSITORY: ${{ github.repository }}
+          LAB_COMPONENT: ${{ matrix.component }}
+        run: echo "name=ghcr.io/${LAB_REPOSITORY,,}-${LAB_COMPONENT}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: dsk-stock-lab04-github-actions
+          file: dsk-stock-lab04-github-actions/labs/dsk-stock-lab01-docker/${{ matrix.component }}.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
