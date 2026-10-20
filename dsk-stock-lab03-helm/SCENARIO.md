@@ -229,7 +229,7 @@ nano values.local.yaml
 
 Copiez la valeur générée par OpenSSL dans `secrets.jwtSecret`. Ne la partagez pas dans des captures, des logs ou le dépôt Git.
 
-**Exemple complet à adapter** (remplacez `VOTRE_COMPTE`, la StorageClass et `IP_DE_VOTRE_VM`) :
+**Exemple complet à adapter** (remplacez `VOTRE_COMPTE` par l'user de ton github, la StorageClass et `IP_DE_VOTRE_VM` par IPV4 de ta vm) :
 
 ```yaml
 backend:
@@ -249,7 +249,7 @@ secrets:
   jwtSecret: REMPLACER_PAR_LE_RESULTAT_OPENSSL
 ```
 
-**Important :** `IP_DE_VOTRE_VM` est un placeholder, pas une URL à laisser telle quelle. Pour le cas testé dans ce lab, l'adresse LAN de la VM était `10.0.0.50`, mais chaque apprenant utilise sa propre IP.
+**Important :** `IP_DE_VOTRE_VM` est un placeholder, pas une URL à laisser telle quelle. 10.0.0.50 est une adresse IP utilisée à titre d'exemple. Remplacez-la par l'adresse IPv4 de votre VM.
 
 Pour le tunnel SSH décrit plus loin, choisissez plutôt `http://localhost:3001/api` ; pour un Ingress qui route correctement `/api` sur le même domaine, une URL relative `/api` peut être préférable. L'URL doit être accessible **depuis le navigateur**, pas seulement depuis le Pod frontend.
 
@@ -416,9 +416,7 @@ Dans un autre terminal :
 kubectl -n stock-lab03 port-forward --address 0.0.0.0 svc/backend 3001:3001
 ```
 
-Ouvrez `http://IP_DE_VOTRE_VM:8080`. Configurez `frontend.apiBaseUrl` à `http://IP_DE_VOTRE_VM:3001/api`, puis appliquez `helm upgrade` si nécessaire.
-
-> **Sécurité :** `--address 0.0.0.0` expose les ports sur toutes les interfaces réseau de la VM. Réservez cette méthode à un réseau de confiance, avec filtrage adapté ; préférez le tunnel SSH dans les autres cas.
+Ouvrez `http://IP_DE_VOTRE_VM:8080` sur ta machine locale. 
 
 ### Vérifier `env.js` et l'API
 
