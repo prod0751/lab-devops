@@ -228,21 +228,14 @@ Le navigateur utilise `/api` via Nginx. Le nom `backend` est résolu sur le rés
 
 ### 3.3 Rôle des fichiers
 
-\| Fichier | Rôle |
-
-\|---|---|
-
-\| `compose.yaml` | Définit `postgres`, `migrate`, `backend`, `frontend`, leurs dépendances et volumes |
-
-\| `backend.Dockerfile` | Construit l’image Node/NestJS utilisée par le backend et Prisma |
-
-\| `frontend.Dockerfile` | Construit l’interface et l’image Nginx |
-
-\| `nginx.conf` | Sert le frontend et transmet `/api` au backend |
-
-\| `.env` | Paramètres locaux, secrets et `BIND_IP` (non versionnés) |
-
-\| `apps/` | Sources applicatives |
+| Fichier | Rôle |
+|---|---|
+| `compose.yaml` | Définit `postgres`, `migrate`, `backend`, `frontend`, leurs dépendances et volumes |
+| `backend.Dockerfile` | Construit l’image Node/NestJS utilisée par le backend et Prisma |
+| `frontend.Dockerfile` | Construit l’interface et l’image Nginx |
+| `nginx.conf` | Sert le frontend et transmet `/api` au backend |
+| `.env` | Paramètres locaux, secrets et `BIND_IP` (non versionnés) |
+| `apps/` | Sources applicatives |
 
 ## 4. Déployer pas à pas
 
@@ -383,23 +376,14 @@ Une sauvegarde `pg_dump` a été créée et vérifiée. Le mot de passe du rôle
 ## 8. Critères de réussite
 
 | Contrôle | Preuve attendue |
-
 |---|---|
-
 | Configuration | `.env` local non commité, configuration Compose valide |
-
 | Base de données | `postgres` healthy, authentification réseau fonctionnelle |
-
 | Migration | `migrate` terminé avec code 0, schéma à jour |
-
 | Backend | `/health` répond HTTP 200 |
-
 | Frontend | `http://localhost:8080/` répond HTTP 200 et l’interface s’affiche |
-
 | Métier | Stock 10 → 13 → 9 ; sortie de 99 refusée |
-
 | Persistance | Produit toujours présent après `down` / `up` sans `-v` |
-
 | Sauvegarde | Archive `pg_dump` créée et lisible |
 
 ## 9. Questions et exercices complémentaires

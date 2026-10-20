@@ -505,7 +505,7 @@ helm history stock -n stock-lab03
 
 **Exemple réellement observé pendant la validation du lab :**
 
-| Révision | État final observé | Opération |
+| Révision | État final observé | Opération | 
 |---|---|---|
 | 1 | superseded | Installation initiale |
 | 2 | superseded | Upgrade sans configuration API frontend correcte |
