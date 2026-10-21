@@ -18,4 +18,4 @@ existingSecret: stock-secrets
 ingress:
   enabled: true
   className: traefik
-  host: stockage.dsk.lab
+  host: stock.stockage.dsk
